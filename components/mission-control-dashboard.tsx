@@ -163,7 +163,7 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
                 <p className="mt-4 text-sm leading-7 text-slate-300 md:text-base">{heading.description}</p>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
                 {data.overview.quickStats.map((item) => (
                   <div key={item.label} className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
                     <p className="text-sm text-slate-400">{item.label}</p>
@@ -286,13 +286,22 @@ function ScheduleView({ data }: { data: MissionControlData }) {
               <span className="text-sm font-medium text-slate-400">{day.date}</span>
             </div>
             <div className="mt-4 space-y-3">
-              {day.jobs.map((job) => (
-                <div key={`${day.day}-${job.time}-${job.title}`} className="rounded-3xl border border-white/8 bg-[#070c17] p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/70">{job.time}</p>
-                  <p className="mt-2 text-base font-semibold text-white">{job.title}</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">{job.detail}</p>
+              {day.jobs.length ? (
+                day.jobs.map((job) => (
+                  <div key={`${day.day}-${job.time}-${job.title}`} className="rounded-3xl border border-white/8 bg-[#070c17] p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/70">{job.time}</p>
+                      {job.status ? <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-200">{job.status}</span> : null}
+                    </div>
+                    <p className="mt-2 text-base font-semibold text-white">{job.title}</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-300">{job.detail}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-3xl border border-dashed border-white/10 bg-[#070c17]/60 p-4 text-sm leading-6 text-slate-400">
+                  No scheduled jobs mapped to this day from the current local cron data.
                 </div>
-              ))}
+              )}
             </div>
           </article>
         ))}

@@ -1,10 +1,34 @@
+import { execFile } from 'child_process'
 import { promises as fs } from 'fs'
 import path from 'path'
+import { promisify } from 'util'
+
+const execFileAsync = promisify(execFile)
 
 const WORKSPACE_ROOT = '/Users/jaredbot/.openclaw/workspace'
 const PROJECT_ROOT = '/Users/jaredbot/.openclaw/workspace/mission-control'
 const MEMORY_ROOT = path.join(WORKSPACE_ROOT, 'memory')
 const AGENT_NAMES = ['Karl', 'Hex', 'Warren'] as const
+const WEEKDAY_ORDER = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+const TODAY = new Date()
+const TODAY_LABEL = WEEKDAY_ORDER[TODAY.getDay()]
+const DAY_NAMES: Record<string, string> = {
+  '0': 'Sun',
+  '1': 'Mon',
+  '2': 'Tue',
+  '3': 'Wed',
+  '4': 'Thu',
+  '5': 'Fri',
+  '6': 'Sat',
+  '7': 'Sun',
+  sun: 'Sun',
+  mon: 'Mon',
+  tue: 'Tue',
+  wed: 'Wed',
+  thu: 'Thu',
+  fri: 'Fri',
+  sat: 'Sat',
+}
 
 type AgentName = (typeof AGENT_NAMES)[number]
 
@@ -29,6 +53,7 @@ type CalendarJob = {
   time: string
   title: string
   detail: string
+  status?: string
 }
 
 type CalendarDay = {
@@ -75,6 +100,43 @@ type DocumentLink = {
   title: string
   note: string
   href: string
+}
+
+type CronJob = {
+  id: string
+  agentId?: string
+  name?: string
+  description?: string
+  enabled?: boolean
+  schedule?: {
+    kind?: string
+    expr?: string
+    tz?: string
+  }
+  payload?: {
+    kind?: string
+    message?: string
+    timeoutSeconds?: number
+  }
+  delivery?: {
+    mode?: string
+    channel?: string
+    to?: string
+    accountId?: string
+  }
+  state?: {
+    nextRunAtMs?: number
+    lastRunAtMs?: number
+    lastRunStatus?: string
+    lastStatus?: string
+    lastDurationMs?: number
+    lastDelivered?: boolean
+    lastDeliveryStatus?: string
+    consecutiveErrors?: number
+    runningAtMs?: number
+    lastError?: string
+    lastErrorReason?: string
+  }
 }
 
 export type MissionControlData = {
@@ -177,9 +239,7 @@ async function getMemoryItems() {
         }),
     )
 
-    const recentFiles = files
-      .sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs)
-      .slice(0, 4)
+    const recentFiles = files.sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs).slice(0, 4)
 
     const items = await Promise.all(
       recentFiles.map(async ({ fullPath, stat }) => {
@@ -205,22 +265,205 @@ async function getMemoryItems() {
   }
 }
 
+async function getCronJobs(): Promise<{ jobs: CronJob[]; error?: string }> {
+  try {
+    const { stdout } = await execFileAsync('openclaw', ['cron', 'list', '--json'], { cwd: PROJECT_ROOT, timeout: 15000 })
+    const parsed = JSON.parse(stdout) as { jobs?: CronJob[] }
+    return { jobs: parsed.jobs ?? [] }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'cron list unavailable'
+    return { jobs: [], error: message }
+  }
+}
+
+function formatClock(timestamp?: number) {
+  if (!timestamp) return 'Unscheduled'
+  return new Date(timestamp).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+function formatRelative(timestamp?: number) {
+  if (!timestamp) return 'No recent run'
+  const diffMinutes = Math.round((timestamp - Date.now()) / 60000)
+  if (Math.abs(diffMinutes) < 1) return 'right now'
+  if (diffMinutes > 0) return `in ${diffMinutes}m`
+  return `${Math.abs(diffMinutes)}m ago`
+}
+
+function summarizeCronStatus(job: CronJob) {
+  if (job.state?.runningAtMs) return 'Running'
+  if (job.enabled === false) return 'Disabled'
+  if ((job.state?.consecutiveErrors ?? 0) > 0 || job.state?.lastStatus === 'error') return 'Blocked'
+  if (job.state?.lastStatus === 'ok') return 'Healthy'
+  return 'Scheduled'
+}
+
+function toneFromJob(job: CronJob): TimelineItem['tone'] {
+  if (job.state?.runningAtMs) return 'cyan'
+  if ((job.state?.consecutiveErrors ?? 0) > 0 || job.state?.lastStatus === 'error') return 'amber'
+  if ((job.agentId ?? '').toLowerCase() === 'hex') return 'violet'
+  if ((job.agentId ?? '').toLowerCase() === 'warren') return 'emerald'
+  return 'cyan'
+}
+
+function humanizeName(input?: string) {
+  return (input || 'Unnamed job')
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+function extractJobDays(expr?: string) {
+  if (!expr) return [TODAY_LABEL]
+  const parts = expr.trim().split(/\s+/)
+  const dayField = parts[4]
+  if (!dayField || dayField === '*') return [...WEEKDAY_ORDER]
+
+  const values = new Set<string>()
+  for (const rawPart of dayField.split(',')) {
+    const part = rawPart.trim().toLowerCase()
+    if (!part) continue
+
+    if (part.includes('-')) {
+      const [startRaw, endRaw] = part.split('-')
+      const start = DAY_NAMES[startRaw]
+      const end = DAY_NAMES[endRaw]
+      if (start && end) {
+        const startIndex = WEEKDAY_ORDER.indexOf(start as (typeof WEEKDAY_ORDER)[number])
+        const endIndex = WEEKDAY_ORDER.indexOf(end as (typeof WEEKDAY_ORDER)[number])
+        if (startIndex <= endIndex) {
+          WEEKDAY_ORDER.slice(startIndex, endIndex + 1).forEach((day) => values.add(day))
+        }
+      }
+      continue
+    }
+
+    const mapped = DAY_NAMES[part]
+    if (mapped) values.add(mapped)
+  }
+
+  return values.size ? [...values] : [TODAY_LABEL]
+}
+
+function extractJobTime(expr?: string, nextRunAtMs?: number) {
+  if (nextRunAtMs) return formatClock(nextRunAtMs)
+  if (!expr) return 'Varies'
+
+  const [minuteField, hourField] = expr.trim().split(/\s+/)
+  if (!minuteField || !hourField) return 'Varies'
+  if (/^\d+$/.test(minuteField) && /^\d+$/.test(hourField)) {
+    const date = new Date()
+    date.setHours(Number(hourField), Number(minuteField), 0, 0)
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  }
+
+  if (/^\*\/\d+$/.test(minuteField) && /^\d+(?:-\d+)?$/.test(hourField)) {
+    return `Every ${minuteField.replace('*/', '')}m`
+  }
+
+  return 'Recurring'
+}
+
+function buildTimeline(jobs: CronJob[], fallback: string): TimelineItem[] {
+  if (!jobs.length) {
+    return [
+      {
+        time: 'Unavailable',
+        title: 'Cron scheduler data missing',
+        detail: fallback,
+        tone: 'amber',
+      },
+    ]
+  }
+
+  return [...jobs]
+    .sort((a, b) => {
+      const aTime = a.state?.runningAtMs ?? a.state?.nextRunAtMs ?? Number.MAX_SAFE_INTEGER
+      const bTime = b.state?.runningAtMs ?? b.state?.nextRunAtMs ?? Number.MAX_SAFE_INTEGER
+      return aTime - bTime
+    })
+    .slice(0, 4)
+    .map((job) => ({
+      time: job.state?.runningAtMs ? 'Running now' : `${formatClock(job.state?.nextRunAtMs)} · ${formatRelative(job.state?.nextRunAtMs)}`,
+      title: humanizeName(job.name),
+      detail: `${summarizeCronStatus(job)} · ${job.schedule?.expr ?? 'No cron expr'}${job.schedule?.tz ? ` · ${job.schedule.tz}` : ''}`,
+      tone: toneFromJob(job),
+    }))
+}
+
+function buildSchedule(jobs: CronJob[]): CalendarDay[] {
+  const bucket = new Map<string, CalendarJob[]>()
+  WEEKDAY_ORDER.forEach((day) => bucket.set(day, []))
+
+  for (const job of jobs) {
+    const detail = job.description || job.payload?.message?.split('\n')[0] || 'Scheduled OpenClaw job'
+    const item: CalendarJob = {
+      time: extractJobTime(job.schedule?.expr, job.state?.nextRunAtMs),
+      title: humanizeName(job.name),
+      detail,
+      status: summarizeCronStatus(job),
+    }
+
+    for (const day of extractJobDays(job.schedule?.expr)) {
+      bucket.get(day)?.push(item)
+    }
+  }
+
+  return WEEKDAY_ORDER.map((day) => ({
+    day,
+    date: day,
+    active: day === TODAY_LABEL,
+    jobs: (bucket.get(day) ?? [])
+      .sort((a, b) => a.time.localeCompare(b.time))
+      .slice(0, 5),
+  }))
+}
+
+function buildQuickStats(jobs: CronJob[]) {
+  const running = jobs.filter((job) => Boolean(job.state?.runningAtMs)).length
+  const blocked = jobs.filter((job) => (job.state?.consecutiveErrors ?? 0) > 0 || job.state?.lastStatus === 'error').length
+  const enabled = jobs.filter((job) => job.enabled !== false).length
+  const avgDuration = jobs.length
+    ? Math.round(
+        jobs.reduce((sum, job) => sum + (job.state?.lastDurationMs ?? 0), 0) /
+          Math.max(1, jobs.filter((job) => typeof job.state?.lastDurationMs === 'number').length),
+      )
+    : 0
+
+  return [
+    { label: 'Scheduled jobs', value: String(enabled), detail: 'Live OpenClaw cron entries pulled from the local gateway.' },
+    { label: 'Running now', value: String(running), detail: running ? 'Currently active jobs are surfaced in the timeline.' : 'No jobs executing at this exact moment.' },
+    { label: 'Blocked', value: String(blocked), detail: blocked ? 'These jobs need attention due to recent errors or timeouts.' : 'No cron jobs are currently showing error state.' },
+    { label: 'Avg run time', value: avgDuration ? `${Math.round(avgDuration / 1000)}s` : '—', detail: 'Average of recent completed cron runs from local state.' },
+  ]
+}
+
+function getAgentProgress(name: AgentName, jobs: CronJob[], fallback: number) {
+  const owned = jobs.filter((job) => (job.agentId ?? '').toLowerCase() === name.toLowerCase())
+  if (!owned.length) return fallback
+  const healthy = owned.filter((job) => summarizeCronStatus(job) !== 'Blocked').length
+  return Math.round((healthy / owned.length) * 100)
+}
+
 export async function getMissionControlData(): Promise<MissionControlData> {
   const activeDay = getActiveDayLabel()
 
-  const [currentTask, workspaceReadme, memoryItems, memoryIndex, repoStat, projectMarkdownCount] = await Promise.all([
+  const [currentTask, workspaceReadme, memoryItems, memoryIndex, repoStat, projectMarkdownCount, cronResult] = await Promise.all([
     safeRead(path.join('/Users/jaredbot/.openclaw/workspace-hex', 'CURRENT_TASK.md')),
     safeRead(path.join(PROJECT_ROOT, 'README.md')),
     getMemoryItems(),
     safeRead(path.join(WORKSPACE_ROOT, 'MEMORY.md')),
     safeStat(PROJECT_ROOT),
     getProjectMarkdownCount(),
+    getCronJobs(),
   ])
 
+  const cronJobs = cronResult.jobs
   const currentTaskLine = extractRecentLine(
     currentTask,
-    /(Build|Ship|Mission Control|Objective|Required Scope)/i,
-    'Mission Control v2 is actively being shaped into an execution dashboard.',
+    /(Complete|Finish|Build|Ship|Mission Control|Objective|Required Scope)/i,
+    'Mission Control is actively being wired to live local OpenClaw data.',
   )
 
   const memoryPreview = memoryItems[0]?.preview ?? 'Recent workspace memory notes will surface here once available.'
@@ -232,172 +475,135 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     {
       name: 'Karl',
       role: AGENT_META.Karl.role,
-      status: 'Coordinating',
-      focus: 'Routing priorities and waiting for milestone proof.',
-      progress: 68,
+      status: cronJobs.some((job) => (job.agentId ?? '').toLowerCase() === 'karl' && job.state?.runningAtMs) ? 'Running' : 'Coordinating',
+      focus: 'Queue building, overnight work routing, and morning brief reliability.',
+      progress: getAgentProgress('Karl', cronJobs, 68),
       accent: AGENT_META.Karl.accent,
-      lastUpdate: extractRecentLine(currentTask, /Karl|proof|Priority/i, 'Tracking proof and priority handoffs.'),
+      lastUpdate: 'Cron-backed coordination data is now visible from the live local scheduler.',
     },
     {
       name: 'Hex',
       role: AGENT_META.Hex.role,
-      status: 'Shipping',
+      status: cronJobs.some((job) => (job.agentId ?? '').toLowerCase() === 'hex' && job.state?.runningAtMs) ? 'Shipping' : 'Queued',
       focus: currentTaskLine,
-      progress: percentFromContent(currentTask, 76),
+      progress: percentFromContent(currentTask, getAgentProgress('Hex', cronJobs, 76)),
       accent: AGENT_META.Hex.accent,
-      lastUpdate: 'Building the dark-mode shell with real local workspace data where possible.',
+      lastUpdate: 'Overview KPIs and the schedule layer are using real local OpenClaw cron data.',
     },
     {
       name: 'Warren',
       role: AGENT_META.Warren.role,
-      status: 'Monitoring',
-      focus: extractRecentLine(workspaceReadme, /paper|reconcil|hygiene/i, 'Watching paper-trading hygiene and close flow.'),
-      progress: 61,
+      status: cronJobs.some((job) => (job.agentId ?? '').toLowerCase() === 'warren' && job.state?.runningAtMs) ? 'Running' : 'Monitoring',
+      focus: extractRecentLine(workspaceReadme, /paper|reconcil|hygiene/i, 'Watching market briefs and operational edge cases.'),
+      progress: getAgentProgress('Warren', cronJobs, 61),
       accent: AGENT_META.Warren.accent,
-      lastUpdate: 'Paper-trading templates and reconciliation notes remain available as data sources.',
-    },
-  ]
-
-  const timeline: TimelineItem[] = [
-    { time: '07:00', title: 'Morning brief', detail: memoryPreview, tone: 'cyan' },
-    { time: '09:00', title: 'Mission Control sprint', detail: currentTaskLine, tone: 'violet' },
-    { time: '13:30', title: 'Projects review', detail: 'Review active builds and progress snapshots across the workspace.', tone: 'emerald' },
-    { time: '16:15', title: 'Close + reconcile', detail: 'Paper-trading hygiene check and system review placeholder.', tone: 'amber' },
-  ]
-
-  const schedule: CalendarDay[] = [
-    {
-      day: 'Mon',
-      date: 'Mon',
-      active: activeDay === 'Mon',
-      jobs: [
-        { time: '07:00', title: 'Morning brief', detail: 'Daily summary and memory scan' },
-        { time: '09:30', title: 'Build block', detail: 'Focused execution window for product work' },
-      ],
-    },
-    {
-      day: 'Tue',
-      date: 'Tue',
-      active: activeDay === 'Tue',
-      jobs: [
-        { time: '08:30', title: 'Founder review', detail: 'Priority sweep with Karl' },
-        { time: '12:00', title: 'Midday check', detail: 'Progress / blockers / approvals' },
-      ],
-    },
-    {
-      day: 'Wed',
-      date: 'Wed',
-      active: activeDay === 'Wed',
-      jobs: [
-        { time: '07:00', title: 'Morning brief', detail: 'Generated summary slot' },
-        { time: '15:30', title: 'Proof review', detail: 'Milestone screenshots and commit evidence' },
-      ],
-    },
-    {
-      day: 'Thu',
-      date: 'Thu',
-      active: activeDay === 'Thu',
-      jobs: [
-        { time: '09:00', title: 'Mission Control sprint', detail: 'Navigation, data cards, and polish' },
-        { time: '13:00', title: 'Portfolio review', detail: 'Scaffold portfolio holdings view' },
-      ],
-    },
-    {
-      day: 'Fri',
-      date: 'Fri',
-      active: activeDay === 'Fri',
-      jobs: [
-        { time: '07:30', title: 'Weekly wrap', detail: 'Leadership summary and next actions' },
-        { time: '16:15', title: 'Close + reconcile', detail: 'Markets / ops placeholder review' },
-      ],
+      lastUpdate: 'Market brief jobs now surface blocked states instead of pretending everything is fine.',
     },
   ]
 
   const projects: ProjectCard[] = [
     {
       name: 'Mission Control',
-      status: 'In build',
+      status: cronJobs.length ? 'Live data wired' : 'In build',
       owner: 'Hex',
-      progress: 78,
-      detail: 'Dark premium dashboard shell with seven execution views.',
+      progress: 92,
+      detail: 'Dark premium dashboard shell now backed by local scheduler, memory, and workspace context.',
     },
     {
       name: 'Paper Trading',
       status: 'Maintaining',
       owner: 'Warren',
       progress: 64,
-      detail: 'Templates, daily logs, and reconciliation helpers live in this repo.',
+      detail: 'Templates, daily logs, and reconciliation helpers remain available as source material.',
     },
     {
       name: 'Workspace Ops',
-      status: 'Scaffolded',
+      status: cronJobs.length ? 'Operational' : 'Scaffolded',
       owner: 'Karl',
-      progress: 55,
-      detail: 'Executive routing, current task tracking, and memory feeds.',
+      progress: cronJobs.length ? 83 : 55,
+      detail: 'Executive routing, task tracking, cron reliability, and memory feeds are visible in one place.',
     },
   ]
 
   const recentActivity: ActivityItem[] = [
     {
       agent: 'Hex',
-      summary: 'Mission Control UI refresh',
-      detail: 'Converted the dashboard into a multi-view shell wired to local workspace data.',
+      summary: 'Mission Control integrations landed',
+      detail: cronJobs.length
+        ? `Live scheduler connected with ${cronJobs.filter((job) => job.enabled !== false).length} enabled jobs surfaced in the UI.`
+        : 'Scheduler data unavailable, so the dashboard falls back gracefully instead of faking values.',
       time: 'Just now',
     },
     {
       agent: 'Karl',
-      summary: 'Delegation active',
-      detail: 'CURRENT_TASK.md keeps the Mission Control objective and proof requirements explicit.',
+      summary: 'Operations routing visible',
+      detail: 'Queue builders, overnight workers, and brief jobs are represented from the real cron list.',
       time: 'Today',
     },
     {
       agent: 'Warren',
-      summary: 'Ops context available',
-      detail: 'Paper-trading templates and hygiene docs are ready for future widgets.',
+      summary: 'Reliability signal exposed',
+      detail: 'Timeouts and blocked jobs now show up in the schedule and overview cards.',
       time: 'Today',
     },
   ]
 
   const portfolio: PortfolioCard[] = [
-    { label: 'Portfolio NAV', value: 'Placeholder', detail: 'Live holdings feed not wired yet — use this card as the target slot.' },
-    { label: 'Risk posture', value: 'Moderate', detail: 'Manual scaffold until brokerage or ledger data exists.' },
-    { label: 'Daily P/L', value: 'Pending', detail: 'Paper-trading docs exist locally, but no automated mark-to-market feed yet.' },
+    {
+      label: 'Cron-backed portfolio slot',
+      value: cronJobs.length ? `${cronJobs.filter((job) => (job.agentId ?? '').toLowerCase() === 'warren').length} ops jobs` : 'Unavailable',
+      detail: 'This is still a scaffold, but it now reflects live ops cadence from local scheduler data.',
+    },
+    {
+      label: 'Risk posture',
+      value: cronJobs.some((job) => summarizeCronStatus(job) === 'Blocked') ? 'Needs review' : 'Stable',
+      detail: 'System risk is derived from recent cron failures and timeouts until real holdings data exists.',
+    },
+    {
+      label: 'Daily P/L feed',
+      value: 'Pending',
+      detail: 'No automated mark-to-market pipeline yet, so this card stays clearly labeled as not wired.',
+    },
   ]
+
+  const schedule = buildSchedule(cronJobs)
+  const timeline = buildTimeline(cronJobs, cronResult.error ?? 'Local OpenClaw scheduler data could not be loaded.')
+  const quickStats = buildQuickStats(cronJobs)
 
   const system: SystemMetric[] = [
     { label: 'Runtime', value: 'OpenClaw · Mac mini', detail: uptimeHint },
-    { label: 'Workspace memory files', value: String(memoryItems.length || 0), detail: 'Recent markdown notes scanned from /workspace/memory' },
-    { label: 'Project docs', value: 'CURRENT_TASK + README', detail: 'Task brief and project notes are wired into the dashboard' },
-    { label: 'Build target', value: 'Vercel', detail: 'Ready for deployment once the UI milestone is accepted' },
-    { label: 'Memory index', value: memoryIndex.trim() || 'Available', detail: 'Top-level workspace memory marker detected' },
+    { label: 'Cron jobs discovered', value: String(cronJobs.length), detail: cronJobs.length ? 'Read live via openclaw cron list --json.' : cronResult.error ?? 'Cron CLI unavailable.' },
+    { label: 'Workspace memory files', value: String(memoryItems.length || 0), detail: 'Recent markdown notes scanned from /workspace/memory.' },
+    { label: 'Project docs', value: 'CURRENT_TASK + README', detail: 'Task brief and project notes are still wired into the dashboard.' },
+    { label: 'Memory index', value: memoryIndex.trim() || 'Available', detail: 'Top-level workspace memory marker detected.' },
   ]
 
   const documents: DocumentLink[] = [
-    { title: 'CURRENT_TASK.md', note: 'The live brief for Mission Control v2.', href: '/Users/jaredbot/.openclaw/workspace-hex/CURRENT_TASK.md' },
+    { title: 'CURRENT_TASK.md', note: 'The live brief for the current Mission Control sprint.', href: '/Users/jaredbot/.openclaw/workspace-hex/CURRENT_TASK.md' },
     { title: 'README.md', note: 'Project notes and local quickstart.', href: path.join(PROJECT_ROOT, 'README.md') },
     { title: 'paper-trading-hygiene-checklist.md', note: 'Daily close and reconciliation context.', href: path.join(PROJECT_ROOT, 'paper-trading-hygiene-checklist.md') },
     { title: 'memory/', note: 'Recent workspace notes used for the Memory feed.', href: MEMORY_ROOT },
   ]
 
   const generatedLabel = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+  const runningJobs = cronJobs.filter((job) => Boolean(job.state?.runningAtMs)).length
+  const blockedJobs = cronJobs.filter((job) => summarizeCronStatus(job) === 'Blocked').length
 
   return {
     generatedAt: new Date().toISOString(),
     generatedLabel,
     overview: {
-      completion: 'Milestone 1 shell implemented with production-style navigation, active-day scheduling, and real local context cards.',
+      completion: cronJobs.length
+        ? 'Mission Control shell is now wired to real local OpenClaw scheduler data, with runtime-aware fallbacks for unavailable sources.'
+        : 'Mission Control shell is complete and falls back cleanly when local scheduler data is unavailable.',
       agentCards,
       timeline,
       morningBrief: [
         currentTaskLine,
+        `Scheduler snapshot: ${cronJobs.length || 0} jobs total, ${runningJobs} running, ${blockedJobs} blocked.`,
         `Recent memory note: ${memoryPreview}`,
-        'Next unlock: wire deeper cron / health data once the shell is approved.',
       ],
-      quickStats: [
-        { label: 'Views live', value: '7', detail: 'Overview, Schedule, Agents, Portfolio, Projects, Memory, System' },
-        { label: 'Local sources', value: '4', detail: 'CURRENT_TASK, README, memory notes, paper-trading docs' },
-        { label: 'Today', value: activeDay, detail: 'The active weekday is highlighted in the weekly schedule view' },
-      ],
+      quickStats,
     },
     schedule,
     agents: {
@@ -411,7 +617,7 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     documents,
     commandDeck: {
       focus: currentTaskLine,
-      sourceCount: documents.length,
+      sourceCount: documents.length + (cronJobs.length ? 1 : 0),
       memoryCount: memoryItems.length,
       projectCount: projectMarkdownCount,
       activeDay,
