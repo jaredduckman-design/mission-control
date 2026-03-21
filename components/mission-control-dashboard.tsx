@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import type { MissionControlData } from '../lib/mission-control-data'
 
-const navItems = ['Overview', 'Schedule', 'Agents', 'Portfolio', 'Projects', 'Memory', 'System', 'Settings'] as const
+const navItems = ['Overview', 'Schedule', 'Agents', 'Portfolio', 'Projects', 'Memory', 'Documents', 'System', 'Settings'] as const
 
 const NAV_OWNER: Record<(typeof navItems)[number], AgentName> = {
   Overview: 'Karl',
@@ -13,6 +13,7 @@ const NAV_OWNER: Record<(typeof navItems)[number], AgentName> = {
   Portfolio: 'Warren',
   Projects: 'Hex',
   Memory: 'Karl',
+  Documents: 'Hex',
   System: 'Karl',
   Settings: 'Karl',
 }
@@ -24,6 +25,7 @@ const NAV_TOOLTIPS: Record<(typeof navItems)[number], string> = {
   Portfolio: 'Summarizes money posture and risk in simple percentages and holdings.',
   Projects: 'Tracks delivery progress, recent commits, and blockers for active work.',
   Memory: 'Surfaces prior notes and logs so decisions have context and continuity.',
+  Documents: 'Lists core project docs and opens them directly so context is one click away.',
   System: 'Shows runtime reliability, cron health, and operational warnings.',
   Settings: 'Controls update cadence, model routing, and onboarding help.',
 }
@@ -113,6 +115,12 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
           eyebrow: 'Memory feed',
           title: 'Recent notes pulled from the real workspace memory folder.',
           description: 'The point here is continuity: quick summaries of what the system has already learned or recorded.',
+        }
+      case 'Documents':
+        return {
+          eyebrow: 'Documents',
+          title: 'Core project docs and references in one place.',
+          description: 'Use this view to jump straight into task briefs, readmes, and memory sources without hunting through folders.',
         }
       case 'System':
         return {
@@ -243,6 +251,7 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
           {activeView === 'Portfolio' && <PortfolioView data={data} />}
           {activeView === 'Projects' && <ProjectsView data={data} />}
           {activeView === 'Memory' && <MemoryView data={data} />}
+          {activeView === 'Documents' && <DocumentsView data={data} />}
           {activeView === 'System' && <SystemView data={data} />}
           {activeView === 'Settings' && <SettingsView data={data} onReplayTour={() => setShowTour(true)} />}
         </section>
@@ -768,6 +777,37 @@ function MemoryView({ data }: { data: MissionControlData }) {
   )
 }
 
+
+function DocumentsView({ data }: { data: MissionControlData }) {
+  return (
+    <section className="space-y-4" title="Documents keeps key files easy to open so context is never buried.">
+      <div className="flex justify-end">
+        <SectionHint text="Documents gives one-click access to core files so onboarding and handoffs are faster." />
+      </div>
+      <div className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+        <div className="mb-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Source files</p>
+          <h3 className="mt-2 text-2xl font-semibold text-white">Workspace references</h3>
+        </div>
+        <div className="grid gap-4 xl:grid-cols-2">
+          {data.documents.map((doc) => (
+            <a
+              key={doc.href}
+              href={doc.href}
+              className="rounded-[28px] border border-white/8 bg-white/[0.03] p-4 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.08]"
+              title={doc.note}
+            >
+              <p className="text-lg font-semibold text-white">{doc.title}</p>
+              <p className="mt-2 truncate text-sm text-slate-300">{doc.note}</p>
+              <p className="mt-3 text-xs uppercase tracking-[0.18em] text-slate-500">{doc.href}</p>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function SystemView({ data }: { data: MissionControlData }) {
   const [sortBy, setSortBy] = useState<'status' | 'lastRun' | 'nextRun' | 'consecutiveErrors'>('consecutiveErrors')
   const sortedRows = [...data.system.cronRows].sort((a, b) => {
@@ -972,6 +1012,7 @@ function OnboardingTour({ onClose }: { onClose: () => void }) {
     'Portfolio is reserved for finance snapshots and risk posture.',
     'Projects tracks delivery status and current blockers.',
     'Memory captures overnight logs and continuity context.',
+    'Documents centralizes task briefs and source files so onboarding is faster.',
     'System exposes runtime health, source confidence, and local references.',
     'Settings controls update frequency, routing, and lets you replay this tour anytime.',
   ]
