@@ -251,7 +251,7 @@ function OverviewView({ data }: { data: MissionControlData }) {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: theme.color, boxShadow: `0 0 16px ${theme.color}` }} />
-                        <span className="text-2xl" aria-hidden>{theme.emoji}</span>
+                        <span className="text-4xl leading-none" aria-hidden>{theme.emoji}</span>
                         <p className="text-lg font-semibold text-white">{agent.name}</p>
                       </div>
                       <p className="mt-1 text-sm text-slate-400">{theme.tagline}</p>
@@ -365,7 +365,7 @@ function AgentsView({ data }: { data: MissionControlData }) {
             <article key={agent.name} className="rounded-[32px] border border-white/8 border-l-4 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]" style={{ borderLeftColor: theme.color }} title="Agent identity card: who they are, what they own, and how execution is going.">
               <div className="flex items-center gap-2">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: theme.color, boxShadow: `0 0 16px ${theme.color}` }} />
-                <span className="text-2xl" aria-hidden>{theme.emoji}</span>
+                <span className="text-4xl leading-none" aria-hidden>{theme.emoji}</span>
                 <h3 className="text-xl font-semibold text-white">{agent.name}</h3>
               </div>
               <p className="mt-2 text-sm text-slate-400">{theme.tagline}</p>
@@ -539,12 +539,14 @@ function ProjectsView({ data }: { data: MissionControlData }) {
       </article>
 
       <div className="grid gap-4 xl:grid-cols-3">
-        {data.projects.map((project) => (
-          <article key={project.name} className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]" title="Project cards show delivery status, ownership, and latest commit proof.">
+        {data.projects.map((project) => {
+          const ownerTheme = agentTheme(project.owner)
+          return (
+          <article key={project.name} className="rounded-[32px] border border-white/8 border-l-4 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]" style={{ borderLeftColor: ownerTheme.color }} title="Project cards show delivery status, ownership, and latest commit proof.">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-xl font-semibold text-white">{project.name}</h3>
-                <p className="mt-2 flex items-center gap-2 text-sm text-slate-400"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: agentTheme(project.owner).color }} />Owner · {project.owner}</p>
+                <p className="mt-2 flex items-center gap-2 text-sm text-slate-400"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: ownerTheme.color }} />Owner · {project.owner}</p>
               </div>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-100">{project.status}</span>
             </div>
@@ -558,14 +560,15 @@ function ProjectsView({ data }: { data: MissionControlData }) {
               ))}
             </div>
             <div className="mt-5 h-2 rounded-full bg-white/10">
-              <div className="h-2 rounded-full bg-[linear-gradient(90deg,rgba(125,211,252,1),rgba(52,211,153,1))]" style={{ width: `${project.progress}%` }} />
+              <div className="h-2 rounded-full" style={{ width: `${project.progress}%`, backgroundColor: ownerTheme.color }} />
             </div>
             <div className="mt-4 flex items-center justify-between">
               <p className="text-sm text-slate-300">{project.progress}% complete</p>
               <button type="button" onClick={() => setSelected(project)} className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/[0.08]">View details</button>
             </div>
           </article>
-        ))}
+          )
+        })}
       </div>
 
       {selected ? (
