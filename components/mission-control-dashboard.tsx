@@ -810,10 +810,31 @@ function DocumentsView({ data }: { data: MissionControlData }) {
 
 function SystemView({ data }: { data: MissionControlData }) {
   const [sortBy, setSortBy] = useState<'status' | 'lastRun' | 'nextRun' | 'consecutiveErrors'>('consecutiveErrors')
+  const [systemActionState, setSystemActionState] = useState<'idle' | 'running' | 'success' | 'error'>('idle')
+  const [systemActionMessage, setSystemActionMessage] = useState('')
   const sortedRows = [...data.system.cronRows].sort((a, b) => {
     if (sortBy === 'consecutiveErrors') return b.consecutiveErrors - a.consecutiveErrors
     return a[sortBy].localeCompare(b[sortBy])
   })
+
+  const runSystemAction = async (action: 'restart-gateway' | 'health-check' | 'clear-error-backoff') => {
+    setSystemActionState('running')
+    setSystemActionMessage('Running command…')
+    try {
+      const response = await fetch('/api/system/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      const payload = (await response.json()) as { ok?: boolean; message?: string; output?: string; error?: string }
+      if (!response.ok || !payload.ok) throw new Error(payload.error || 'Command failed')
+      setSystemActionState('success')
+      setSystemActionMessage(payload.message || payload.output || 'Command completed.')
+    } catch (error) {
+      setSystemActionState('error')
+      setSystemActionMessage(error instanceof Error ? error.message : 'Command failed.')
+    }
+  }
 
   return (
     <section className="space-y-5" title="System view highlights runtime health so issues are caught before they cascade.">
@@ -833,10 +854,13 @@ function SystemView({ data }: { data: MissionControlData }) {
       <article className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-2xl font-semibold text-white">Cron reliability</h3>
-          <div className="flex gap-2">
-            {['Restart Gateway', 'Run Health Check', 'Clear Error Backoff'].map((action) => (
-              <button key={action} className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white">{action}</button>
-            ))}
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={() => runSystemAction('restart-gateway')} className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white hover:bg-white/[0.1]">Restart Gateway</button>
+            <button onClick={() => runSystemAction('health-check')} className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white hover:bg-white/[0.1]">Run Health Check</button>
+            <button onClick={() => runSystemAction('clear-error-backoff')} className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white hover:bg-white/[0.1]">Clear Error Backoff</button>
+            {systemActionState !== 'idle' ? (
+              <span className={`text-xs ${systemActionState === 'error' ? 'text-red-300' : systemActionState === 'success' ? 'text-emerald-300' : 'text-slate-300'}`}>{systemActionMessage}</span>
+            ) : null}
           </div>
         </div>
         <div className="mt-4 overflow-x-auto rounded-2xl border border-white/10">
