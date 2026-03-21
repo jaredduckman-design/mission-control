@@ -664,7 +664,21 @@ function MemoryView({ data }: { data: MissionControlData }) {
                 {group.items.map((item) => {
                   const isExpanded = expanded === item.filename
                   return (
-                    <article key={item.filename} className="rounded-[28px] border border-white/8 bg-white/[0.03] p-4" title="Memory cards show what was recorded, when it changed, and let you open the full note.">
+                    <article
+                      key={item.filename}
+                      className="cursor-pointer rounded-[28px] border border-white/8 bg-white/[0.03] p-4"
+                      title="Memory cards show what was recorded, when it changed, and let you open the full note."
+                      onClick={() => setExpanded(isExpanded ? null : item.filename)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          setExpanded(isExpanded ? null : item.filename)
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={isExpanded}
+                    >
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
                           <p className="text-lg font-semibold text-white">{item.filename}</p>
@@ -675,13 +689,7 @@ function MemoryView({ data }: { data: MissionControlData }) {
 
                       <pre className="mt-3 whitespace-pre-wrap rounded-2xl border border-white/10 bg-[#070c17] p-3 text-xs leading-6 text-slate-200">{item.preview}</pre>
 
-                      <button
-                        type="button"
-                        onClick={() => setExpanded(isExpanded ? null : item.filename)}
-                        className="mt-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/[0.08]"
-                      >
-                        {isExpanded ? 'Collapse' : 'Open full memory'}
-                      </button>
+                      <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">{isExpanded ? 'Click card to collapse' : 'Click card to open full memory'}</p>
 
                       {isExpanded ? (
                         <div className="prose prose-invert mt-4 max-w-none rounded-2xl border border-white/10 bg-[#070c17] p-4 prose-p:text-slate-200 prose-headings:text-white prose-strong:text-white">
@@ -747,7 +755,9 @@ function SystemView({ data }: { data: MissionControlData }) {
                     <p className="font-semibold text-white">{row.name}</p>
                     <p className="text-xs text-slate-500">{row.promptPreview}</p>
                   </td>
-                  <td className="px-3 py-2">{row.status}</td>
+                  <td className="px-3 py-2">
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] ${statusBadgeClass(row.status)}`}>{row.status}</span>
+                  </td>
                   <td className="px-3 py-2">{row.lastRun}</td>
                   <td className="px-3 py-2">{row.nextRun}</td>
                   <td className="px-3 py-2">{row.consecutiveErrors}</td>
