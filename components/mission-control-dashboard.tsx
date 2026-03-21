@@ -195,7 +195,6 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
                     <div key={item.label} className="rounded-3xl border border-white/10 bg-white/[0.04] p-4" title="Quick health counters so you can see system risk in seconds.">
                       <p className="text-sm text-slate-400">{item.label}</p>
                       <p className={`mt-2 text-2xl font-semibold ${valueClass}`}>{item.value}</p>
-                      <p className="mt-2 text-sm leading-6 text-slate-300">{item.detail}</p>
                     </div>
                   )
                 })}

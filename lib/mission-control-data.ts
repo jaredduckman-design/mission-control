@@ -617,7 +617,7 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     {
       name: 'Hex',
       role: AGENT_META.Hex.role,
-      status: cronJobs.some((job) => (job.agentId ?? '').toLowerCase() === 'hex' && job.state?.runningAtMs) ? 'Shipping' : 'Queued',
+      status: cronJobs.some((job) => (job.agentId ?? '').toLowerCase() === 'hex' && job.state?.runningAtMs) ? 'Shipping' : 'Healthy',
       focus: currentTaskLine,
       progress: percentFromContent(currentTask, getAgentProgress('Hex', cronJobs, 76)),
       accent: AGENT_META.Hex.accent,
