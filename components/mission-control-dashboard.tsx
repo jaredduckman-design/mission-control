@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import { useRouter } from 'next/navigation'
 import type { MissionControlData } from '../lib/mission-control-data'
 
 const navItems = ['Overview', 'Schedule', 'Agents', 'Portfolio', 'Projects', 'Memory', 'Documents', 'System', 'Settings'] as const
@@ -456,6 +457,7 @@ function AgentsView({ data }: { data: MissionControlData }) {
 }
 
 function PortfolioView({ data }: { data: MissionControlData }) {
+  const router = useRouter()
   const palette = ['#00ff88', '#f59e0b', '#3b82f6', '#ef4444', '#888888']
 
   const donut = (entries: { category: string; weight: number }[]) => {
@@ -468,10 +470,28 @@ function PortfolioView({ data }: { data: MissionControlData }) {
     return `conic-gradient(${slices.join(', ')})`
   }
 
+  const refresh = () => router.refresh()
+
+  const addHolding = async (account: 'Personal' | 'Business') => {
+    const ticker = window.prompt('Ticker (e.g. AAPL)')?.trim()
+    if (!ticker) return
+    const name = window.prompt('Name')?.trim()
+    if (!name) return
+    const value = Number(window.prompt('Current value ($)', '0') || '0')
+    const category = window.prompt('Category', 'Stocks') || 'Stocks'
+    await fetch('/api/portfolio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ account, ticker, name, value, category }) })
+    refresh()
+  }
+
+  const mutateHolding = async (id: string, payload: Record<string, unknown>, method = 'PATCH') => {
+    await fetch(`/api/portfolio/${id}`, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    refresh()
+  }
+
   return (
     <section className="space-y-5" title="Portfolio summarizes money posture and risk at a glance.">
       <div className="flex justify-end">
-        <SectionHint text="Portfolio shows your real account values and holdings so money risk is visible in seconds." />
+        <SectionHint text="Portfolio is now DB-backed: add, edit, buy/sell, and notes persist after reload and sync back to Warren's source file." />
       </div>
       <article className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -480,8 +500,8 @@ function PortfolioView({ data }: { data: MissionControlData }) {
             <h3 className="mt-2 text-3xl font-semibold text-white">Net worth: {data.portfolio.netWorth}</h3>
             <p className="mt-2 text-sm text-slate-400">Last updated {data.portfolio.lastUpdated}</p>
           </div>
-          <p className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-2 text-sm font-semibold text-amber-100" title="Data source: /Users/jaredbot/.openclaw/workspace-warren/portfolio.json">
-            Source: portfolio.json
+          <p className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-2 text-sm font-semibold text-amber-100" title="Primary source: Prisma + SQLite in mission-control.db. Sync writes mirror changes to workspace-warren/portfolio.json.">
+            Source: Prisma + SQLite
           </p>
         </div>
       </article>
@@ -489,13 +509,16 @@ function PortfolioView({ data }: { data: MissionControlData }) {
       <div className="grid gap-5 xl:grid-cols-2">
         {data.portfolio.columns.map((column) => (
           <article key={column.label} className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <h4 className="text-2xl font-semibold text-white">{column.label}</h4>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-100">{column.total}</span>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-100">{column.total}</span>
+                <button type="button" onClick={() => addHolding(column.label)} className="rounded-lg border border-emerald-300/40 bg-emerald-300/10 px-2.5 py-1 text-xs font-semibold text-emerald-100">Add</button>
+              </div>
             </div>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center">
-              <div className="mx-auto h-32 w-32 rounded-full" style={{ background: donut(column.allocations) }} title="Indexes, banks, stocks, crypto, cash allocation" />
+              <div className="mx-auto h-32 w-32 rounded-full" style={{ background: donut(column.allocations) }} />
               <div className="space-y-2 text-sm">
                 {column.allocations.map((entry, index) => (
                   <div key={`${column.label}-${entry.category}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-slate-200">
@@ -517,28 +540,34 @@ function PortfolioView({ data }: { data: MissionControlData }) {
                     <th className="px-3 py-2">Name</th>
                     <th className="px-3 py-2">Value</th>
                     <th className="px-3 py-2">Weight</th>
+                    <th className="px-3 py-2">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/10">
                   {column.holdings.length ? (
                     column.holdings.map((holding) => (
-                      <tr key={`${column.label}-${holding.ticker}`} className="bg-[#070c17] text-slate-200">
+                      <tr key={holding.id} className="bg-[#070c17] text-slate-200">
                         <td className="px-3 py-2 font-semibold text-white">{holding.ticker}</td>
-                        <td className="px-3 py-2">{holding.name}</td>
-                        <td className="px-3 py-2">{holding.value}</td>
                         <td className="px-3 py-2">
-                          <div className="flex items-center gap-2">
-                            <div className="h-2 w-20 rounded-full bg-white/10">
-                              <div className="h-2 rounded-full bg-amber-300" style={{ width: `${holding.weight}%` }} />
-                            </div>
-                            <span>{holding.weight}%</span>
+                          <p>{holding.name}</p>
+                          {holding.notes ? <p className="truncate text-xs text-slate-500" title={holding.notes}>{holding.notes}</p> : null}
+                        </td>
+                        <td className="px-3 py-2">{holding.value}</td>
+                        <td className="px-3 py-2">{holding.weight}%</td>
+                        <td className="px-3 py-2">
+                          <div className="flex flex-wrap gap-1 text-xs">
+                            <button type="button" onClick={() => mutateHolding(holding.id, { action: 'buy', amount: Number(window.prompt('Buy amount ($)', '0') || '0'), note: window.prompt('Optional buy note', '') || '' })} className="rounded border border-emerald-300/40 bg-emerald-300/10 px-2 py-0.5 text-emerald-100">Buy</button>
+                            <button type="button" onClick={() => mutateHolding(holding.id, { action: 'sell', amount: Number(window.prompt('Sell amount ($)', '0') || '0'), note: window.prompt('Optional sell note', '') || '' })} className="rounded border border-amber-300/40 bg-amber-300/10 px-2 py-0.5 text-amber-100">Sell</button>
+                            <button type="button" onClick={() => mutateHolding(holding.id, { ticker: window.prompt('Ticker', holding.ticker) || holding.ticker, name: window.prompt('Name', holding.name) || holding.name, value: Number(window.prompt('Current value ($)', String(holding.value).replace(/[^\d.-]/g, '')) || '0'), category: window.prompt('Category', holding.category) || holding.category })} className="rounded border border-cyan-300/40 bg-cyan-300/10 px-2 py-0.5 text-cyan-100">Edit</button>
+                            <button type="button" onClick={() => mutateHolding(holding.id, { notes: window.prompt('Notes', holding.notes || '') || '' })} className="rounded border border-blue-300/40 bg-blue-300/10 px-2 py-0.5 text-blue-100">Note</button>
+                            <button type="button" onClick={() => { if (window.confirm(`Delete ${holding.ticker}?`)) void mutateHolding(holding.id, {}, 'DELETE') }} className="rounded border border-red-400/40 bg-red-400/10 px-2 py-0.5 text-red-100">Delete</button>
                           </div>
                         </td>
                       </tr>
                     ))
                   ) : (
                     <tr className="bg-[#070c17] text-slate-400">
-                      <td colSpan={4} className="px-3 py-4 text-center">No holdings found in portfolio.json for this account.</td>
+                      <td colSpan={5} className="px-3 py-4 text-center">No DB holdings yet. Use Add to create one.</td>
                     </tr>
                   )}
                 </tbody>

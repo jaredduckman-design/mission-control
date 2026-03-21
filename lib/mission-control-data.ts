@@ -2,13 +2,14 @@ import { execFile } from 'child_process'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { promisify } from 'util'
+import { prisma } from './prisma'
+import { syncPortfolioFromSourceIfNeeded } from './portfolio-sync'
 
 const execFileAsync = promisify(execFile)
 
 const WORKSPACE_ROOT = '/Users/jaredbot/.openclaw/workspace-hex'
 const PROJECT_ROOT = '/Users/jaredbot/.openclaw/workspace-hex/projects/mission-control'
 const MEMORY_ROOT = '/Users/jaredbot/.openclaw/workspace/memory'
-const PORTFOLIO_SOURCE = '/Users/jaredbot/.openclaw/workspace-warren/portfolio.json'
 const AGENT_NAMES = ['Karl', 'Hex', 'Warren'] as const
 const WEEKDAY_ORDER = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 const TODAY = new Date()
@@ -101,8 +102,11 @@ type MemoryItem = {
 }
 
 type PortfolioHolding = {
+  id: string
   ticker: string
   name: string
+  category: string
+  notes?: string
   value: string
   weight: number
 }
@@ -201,25 +205,6 @@ type CronJob = {
     runningAtMs?: number
     lastError?: string
     lastErrorReason?: string
-  }
-}
-
-type PortfolioSource = {
-  lastUpdated?: string
-  netWorth?: {
-    investable?: number
-    property?: number
-    debt?: number
-  }
-  personal?: {
-    total?: number
-    accounts?: Record<string, number>
-    holdings?: { ticker: string; name: string; value: number; weight: number }[]
-  }
-  business?: {
-    total?: number
-    cash?: number
-    holdings?: { ticker: string; name: string; value: number; weight: number }[]
   }
 }
 
@@ -338,65 +323,6 @@ function getActiveDayLabel() {
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(value)
-}
-
-function normalizeCategoryLabel(key: string) {
-  const normalized = key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]/g, ' ')
-  return normalized.charAt(0).toUpperCase() + normalized.slice(1)
-}
-
-function sanitizeWeight(weight: number) {
-  return Math.max(0.1, Math.min(100, Number(weight.toFixed(1))))
-}
-
-function buildAllocations(accounts: Record<string, number> | undefined, total: number) {
-  if (!accounts || total <= 0) return [{ category: 'Cash', weight: 100 }]
-
-  return Object.entries(accounts)
-    .filter(([, value]) => value > 0)
-    .sort((a, b) => b[1] - a[1])
-    .map(([key, value]) => ({
-      category: normalizeCategoryLabel(key),
-      weight: sanitizeWeight((value / total) * 100),
-    }))
-}
-
-function buildPortfolioFromSource(source: PortfolioSource): PortfolioCard {
-  const personalTotal = source.personal?.total ?? 0
-  const businessTotal = source.business?.total ?? 0
-  const investable = source.netWorth?.investable ?? personalTotal + businessTotal
-
-  return {
-    netWorth: formatMoney(investable),
-    lastUpdated: source.lastUpdated ?? new Date().toLocaleDateString('en-US', { dateStyle: 'medium' }),
-    columns: [
-      {
-        label: 'Personal',
-        total: formatMoney(personalTotal),
-        allocations: buildAllocations(source.personal?.accounts, personalTotal),
-        holdings: (source.personal?.holdings ?? []).map((holding) => ({
-          ticker: holding.ticker,
-          name: holding.name,
-          value: formatMoney(holding.value),
-          weight: sanitizeWeight(holding.weight),
-        })),
-      },
-      {
-        label: 'Business',
-        total: formatMoney(businessTotal),
-        allocations: buildAllocations(
-          source.business?.cash ? { Invested: Math.max(0, businessTotal - source.business.cash), Cash: source.business.cash } : { Invested: businessTotal },
-          businessTotal,
-        ),
-        holdings: (source.business?.holdings ?? []).map((holding) => ({
-          ticker: holding.ticker,
-          name: holding.name,
-          value: formatMoney(holding.value),
-          weight: sanitizeWeight(holding.weight),
-        })),
-      },
-    ],
-  }
 }
 
 async function getProjectMarkdownCount() {
@@ -715,7 +641,9 @@ function buildErrorLog(jobs: CronJob[]): SystemErrorRow[] {
 export async function getMissionControlData(): Promise<MissionControlData> {
   const activeDay = getActiveDayLabel()
 
-  const [currentTask, workspaceReadme, memoryItems, memoryIndex, repoStat, projectMarkdownCount, cronResult, gatewayStatus, portfolioSourceRaw] = await Promise.all([
+  await syncPortfolioFromSourceIfNeeded()
+
+  const [currentTask, workspaceReadme, memoryItems, memoryIndex, repoStat, projectMarkdownCount, cronResult, gatewayStatus] = await Promise.all([
     safeRead(path.join('/Users/jaredbot/.openclaw/workspace-hex', 'CURRENT_TASK.md')),
     safeRead(path.join(PROJECT_ROOT, 'README.md')),
     getMemoryItems(),
@@ -724,7 +652,6 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     getProjectMarkdownCount(),
     getCronJobs(),
     getGatewayStatusSummary(),
-    safeRead(PORTFOLIO_SOURCE),
   ])
 
   const cronJobs = cronResult.jobs
@@ -867,18 +794,51 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     },
   ]
 
-  let portfolio: PortfolioCard
-  try {
-    portfolio = buildPortfolioFromSource(JSON.parse(portfolioSourceRaw) as PortfolioSource)
-  } catch {
-    portfolio = {
-      netWorth: '$0',
-      lastUpdated: 'Unavailable',
-      columns: [
-        { label: 'Personal', total: '$0', allocations: [{ category: 'Cash', weight: 100 }], holdings: [] },
-        { label: 'Business', total: '$0', allocations: [{ category: 'Cash', weight: 100 }], holdings: [] },
-      ],
+  const [meta, dbHoldings] = await Promise.all([
+    prisma.portfolioMeta.findUnique({ where: { id: 1 } }),
+    prisma.portfolioHolding.findMany({ orderBy: [{ account: 'asc' }, { value: 'desc' }] }),
+  ])
+
+  const buildColumn = (label: 'Personal' | 'Business') => {
+    const holdings = dbHoldings.filter((holding) => holding.account === label)
+    const total = holdings.reduce((sum, holding) => sum + Number(holding.value || 0), 0)
+    const byCategory = holdings.reduce<Record<string, number>>((acc, holding) => {
+      const key = holding.category || 'Other'
+      acc[key] = (acc[key] ?? 0) + Number(holding.value || 0)
+      return acc
+    }, {})
+
+    const allocations = Object.entries(byCategory)
+      .map(([category, value]) => ({
+        category,
+        weight: total > 0 ? Math.max(1, Math.round((value / total) * 100)) : 0,
+      }))
+      .sort((a, b) => b.weight - a.weight)
+
+    return {
+      label,
+      total: formatMoney(total),
+      allocations: allocations.length ? allocations : [{ category: 'Cash', weight: 100 }],
+      holdings: holdings.map((holding) => ({
+        id: holding.id,
+        ticker: holding.ticker,
+        name: holding.name,
+        category: holding.category,
+        notes: holding.notes ?? '',
+        value: formatMoney(holding.value),
+        weight: total > 0 ? Number(((holding.value / total) * 100).toFixed(1)) : 0,
+      })),
     }
+  }
+
+  const investable = meta?.investable ?? dbHoldings.reduce((sum, holding) => sum + Number(holding.value || 0), 0)
+  const property = meta?.property ?? 0
+  const debt = meta?.debt ?? 0
+
+  const portfolio: PortfolioCard = {
+    netWorth: formatMoney(investable + property - debt),
+    lastUpdated: meta?.sourceUpdatedAt ? new Date(meta.sourceUpdatedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : 'Live DB',
+    columns: [buildColumn('Personal'), buildColumn('Business')],
   }
 
   const schedule = buildSchedule(cronJobs)

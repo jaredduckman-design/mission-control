@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model PortfolioMeta {
+  id             Int      @id @default(1)
+  investable     Float    @default(0)
+  property       Float    @default(0)
+  debt           Float    @default(0)
+  sourceMtimeMs  BigInt   @default(0)
+  sourceUpdatedAt String?
+  lastSyncedAt   DateTime @updatedAt
+}
+
+model PortfolioHolding {
+  id         String   @id @default(cuid())
+  account    String
+  ticker     String
+  name       String
+  category   String   @default("Other")
+  value      Float    @default(0)
+  quantity   Float?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  trades     PortfolioTrade[]
+}
+
+model PortfolioTrade {
+  id         String   @id @default(cuid())
+  holdingId  String
+  kind       String
+  amount     Float
+  note       String?
+  createdAt  DateTime @default(now())
+
+  holding PortfolioHolding @relation(fields: [holdingId], references: [id], onDelete: Cascade)
+}
