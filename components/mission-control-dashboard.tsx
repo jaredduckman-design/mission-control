@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import type { MissionControlData } from '../lib/mission-control-data'
 
@@ -51,8 +51,20 @@ function statusBadgeClass(status: string) {
   if (normalized === 'HEALTHY') return 'bg-emerald-500 text-white border-emerald-400'
   if (normalized === 'COORDINATING') return 'bg-blue-500 text-white border-blue-400'
   if (normalized === 'SHIPPING') return 'bg-emerald-500 text-white border-emerald-400'
-  if (normalized === 'MONITORING') return 'bg-amber-400 text-black border-amber-300'
+  if (normalized === 'MONITORING') return 'bg-amber-400 text-slate-950 border-amber-300'
   return 'bg-white/10 text-white border-white/20'
+}
+
+function SectionHint({ text }: { text: string }) {
+  return (
+    <span
+      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-cyan-300/30 bg-cyan-300/10 text-xs font-bold text-cyan-100"
+      title={text}
+      aria-label={text}
+    >
+      ?
+    </span>
+  )
 }
 
 export function MissionControlDashboard({ data }: { data: MissionControlData }) {
@@ -231,7 +243,11 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
 
 function OverviewView({ data }: { data: MissionControlData }) {
   return (
-    <section className="grid gap-5 2xl:grid-cols-[1.2fr_0.9fr]" title="Overview explains what is happening right now and where attention is needed.">
+    <section className="space-y-4" title="Overview explains what is happening right now and where attention is needed.">
+      <div className="flex justify-end">
+        <SectionHint text="Overview is your fast answer to: what is happening now, who owns it, and where risk is building." />
+      </div>
+      <div className="grid gap-5 2xl:grid-cols-[1.2fr_0.9fr]">
       <div className="space-y-5">
         <div className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
           <div className="flex items-center justify-between gap-4 border-b border-white/8 pb-4">
@@ -254,12 +270,12 @@ function OverviewView({ data }: { data: MissionControlData }) {
                         <span className="text-4xl leading-none" aria-hidden>{theme.emoji}</span>
                         <p className="text-lg font-semibold text-white">{agent.name}</p>
                       </div>
-                      <p className="mt-1 text-sm text-slate-400">{theme.tagline}</p>
+                      <p className="mt-1 text-sm" style={{ color: agent.name === 'Warren' ? '#fcd34d' : '#94a3b8' }}>{theme.tagline}</p>
                     </div>
                     <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] ${statusBadgeClass(agent.status)}`}>{agent.status}</span>
                   </div>
 
-                  <p className="mt-4 truncate text-sm leading-6 text-slate-200">{agent.focus}</p>
+                  <p className="mt-4 truncate text-sm leading-6" style={{ color: agent.name === 'Warren' ? '#fde68a' : '#e2e8f0' }}>{agent.focus}</p>
                   <p className="mt-4 text-xs uppercase tracking-[0.18em] text-slate-500">Last update</p>
                   <p className="mt-2 text-sm leading-6 text-slate-300">{agent.lastUpdate}</p>
                   <div className="mt-4 h-2 rounded-full bg-white/10">
@@ -303,13 +319,18 @@ function OverviewView({ data }: { data: MissionControlData }) {
           <p className="mt-3 text-sm leading-6 text-slate-300">CURRENT_TASK, workspace memory files, and project docs are already driving these cards. Missing live integrations stay labeled as placeholders instead of being faked.</p>
         </div>
       </div>
+      </div>
     </section>
   )
 }
 
 function ScheduleView({ data }: { data: MissionControlData }) {
   return (
-    <section className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]" title="Schedule shows what jobs run each day so timing and workload are predictable.">
+    <section className="space-y-4" title="Schedule shows what jobs run each day so timing and workload are predictable.">
+      <div className="flex justify-end">
+        <SectionHint text="Schedule explains when automated work runs so you can plan around it and catch timing conflicts early." />
+      </div>
+      <div className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
       <div className="grid gap-4 xl:grid-cols-5">
         {data.schedule.map((day) => (
           <article
@@ -351,13 +372,18 @@ function ScheduleView({ data }: { data: MissionControlData }) {
           </article>
         ))}
       </div>
+      </div>
     </section>
   )
 }
 
 function AgentsView({ data }: { data: MissionControlData }) {
   return (
-    <section className="grid gap-5 2xl:grid-cols-[1.1fr_0.9fr]" title="Agents view makes ownership clear: who is doing what, and whether they are healthy or blocked.">
+    <section className="space-y-4" title="Agents view makes ownership clear: who is doing what, and whether they are healthy or blocked.">
+      <div className="flex justify-end">
+        <SectionHint text="Agents shows ownership, status, and recent actions so accountability is obvious at a glance." />
+      </div>
+      <div className="grid gap-5 2xl:grid-cols-[1.1fr_0.9fr]">
       <div className="grid gap-4 xl:grid-cols-3">
         {data.agents.cards.map((agent) => {
           const theme = agentTheme(agent.name)
@@ -368,8 +394,8 @@ function AgentsView({ data }: { data: MissionControlData }) {
                 <span className="text-4xl leading-none" aria-hidden>{theme.emoji}</span>
                 <h3 className="text-xl font-semibold text-white">{agent.name}</h3>
               </div>
-              <p className="mt-2 text-sm text-slate-400">{theme.tagline}</p>
-              <p className="mt-4 truncate text-sm leading-7 text-slate-200">{agent.focus}</p>
+              <p className="mt-2 text-sm" style={{ color: agent.name === 'Warren' ? '#fcd34d' : '#94a3b8' }}>{theme.tagline}</p>
+              <p className="mt-4 truncate text-sm leading-7" style={{ color: agent.name === 'Warren' ? '#fde68a' : '#e2e8f0' }}>{agent.focus}</p>
               <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.04] p-4">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-300">Status</span>
@@ -403,6 +429,7 @@ function AgentsView({ data }: { data: MissionControlData }) {
             )
           })}
         </div>
+      </div>
       </div>
     </section>
   )
@@ -820,6 +847,38 @@ function SystemView({ data }: { data: MissionControlData }) {
 }
 
 function SettingsView({ data, onReplayTour }: { data: MissionControlData; onReplayTour: () => void }) {
+  const [selectedFrequency, setSelectedFrequency] = useState(data.settings.selectedFrequency)
+  const [morningBriefTime, setMorningBriefTime] = useState(data.settings.morningBriefTime)
+  const [marketBriefTime, setMarketBriefTime] = useState(data.settings.marketBriefTime)
+  const [modelOverrides, setModelOverrides] = useState<Record<string, string>>(
+    Object.fromEntries(data.settings.modelOverrides.map((override) => [override.agent, override.model])),
+  )
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('mission-control-settings-v1')
+      if (!raw) return
+      const saved = JSON.parse(raw)
+      if (saved.selectedFrequency) setSelectedFrequency(saved.selectedFrequency)
+      if (saved.morningBriefTime) setMorningBriefTime(saved.morningBriefTime)
+      if (saved.marketBriefTime) setMarketBriefTime(saved.marketBriefTime)
+      if (saved.modelOverrides) setModelOverrides((prev) => ({ ...prev, ...saved.modelOverrides }))
+    } catch {
+      // ignore malformed local settings
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        'mission-control-settings-v1',
+        JSON.stringify({ selectedFrequency, morningBriefTime, marketBriefTime, modelOverrides }),
+      )
+    } catch {
+      // ignore storage issues
+    }
+  }, [selectedFrequency, morningBriefTime, marketBriefTime, modelOverrides])
+
   return (
     <section className="grid gap-5 xl:grid-cols-2" title="Settings controls cadence, models, and routing so automation stays understandable.">
       <article className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
@@ -830,16 +889,16 @@ function SettingsView({ data, onReplayTour }: { data: MissionControlData; onRepl
           {data.settings.updateFrequencyOptions.map((option) => (
             <label key={option} className="flex cursor-pointer items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
               <span>{option}</span>
-              <input type="radio" name="hex-frequency" defaultChecked={option === data.settings.selectedFrequency} aria-label={option} />
+              <input type="radio" name="hex-frequency" checked={option === selectedFrequency} onChange={() => setSelectedFrequency(option)} aria-label={option} />
             </label>
           ))}
         </fieldset>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <label className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-200">Morning brief time
-            <input type="time" defaultValue={data.settings.morningBriefTime} className="mt-2 w-full rounded-lg border border-white/10 bg-[#070c17] px-2 py-1 text-white" />
+            <input type="time" value={morningBriefTime} onChange={(event) => setMorningBriefTime(event.target.value)} className="mt-2 w-full rounded-lg border border-white/10 bg-[#070c17] px-2 py-1 text-white" />
           </label>
           <label className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-200">Warren market brief time
-            <input type="time" defaultValue={data.settings.marketBriefTime} className="mt-2 w-full rounded-lg border border-white/10 bg-[#070c17] px-2 py-1 text-white" />
+            <input type="time" value={marketBriefTime} onChange={(event) => setMarketBriefTime(event.target.value)} className="mt-2 w-full rounded-lg border border-white/10 bg-[#070c17] px-2 py-1 text-white" />
           </label>
         </div>
       </article>
@@ -851,7 +910,7 @@ function SettingsView({ data, onReplayTour }: { data: MissionControlData; onRepl
           {data.settings.modelOverrides.map((override) => (
             <label key={override.agent} className="block rounded-2xl border border-white/10 bg-white/[0.04] p-4">
               <span className="text-xs uppercase tracking-[0.18em] text-slate-500">{override.agent} model override</span>
-              <select defaultValue={override.model} className="mt-2 w-full rounded-lg border border-white/10 bg-[#070c17] px-2 py-1 text-white">
+              <select value={modelOverrides[override.agent] ?? override.model} onChange={(event) => setModelOverrides((prev) => ({ ...prev, [override.agent]: event.target.value }))} className="mt-2 w-full rounded-lg border border-white/10 bg-[#070c17] px-2 py-1 text-white">
                 {override.options.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
             </label>
