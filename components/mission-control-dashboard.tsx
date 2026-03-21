@@ -153,13 +153,13 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
             <div className="mt-5 rounded-3xl border border-white/10 bg-white/5 p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Milestone 1</p>
               <p className="mt-2 text-xl font-semibold text-white">{data.overview.completion}</p>
-              <p className="mt-3 text-sm leading-6 text-slate-300">Generated from local workspace context at {data.generatedLabel}.</p>
+              <p className="mt-3 truncate text-sm text-slate-300" title={`Generated from local workspace context at ${data.generatedLabel}.`}>Generated from local workspace context at {data.generatedLabel}.</p>
             </div>
           </div>
 
           <div className="mt-6 rounded-[28px] border border-white/10 bg-white/[0.03] p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Command deck</p>
-            <p className="mt-3 text-sm leading-6 text-slate-200">{data.commandDeck.focus}</p>
+            <p className="mt-3 truncate text-sm text-slate-200" title={data.commandDeck.focus}>{data.commandDeck.focus}</p>
             <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
               <div className="rounded-2xl border border-white/8 bg-[#070c17] px-3 py-2">
                 <p className="text-slate-500">Active day</p>
@@ -196,7 +196,7 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
 
           <div className="mt-6 rounded-[28px] border border-cyan-400/15 bg-cyan-400/5 p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Next unlock</p>
-            <p className="mt-2 text-sm leading-6 text-slate-200">Deeper cron and runtime integrations can drop into this shell without redesigning the UI again.</p>
+            <p className="mt-2 truncate text-sm text-slate-200" title="Deeper cron and runtime integrations can drop into this shell without redesigning the UI again.">Deeper cron and runtime integrations can drop into this shell without redesigning the UI again.</p>
             <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
               <div>
                 <p className="text-cyan-100/60">Sources</p>
@@ -288,7 +288,7 @@ function OverviewView({ data }: { data: MissionControlData }) {
 
                   <p className="mt-4 truncate text-sm leading-6" style={{ color: agent.name === 'Warren' ? '#fde68a' : '#e2e8f0' }}>{agent.focus}</p>
                   <p className="mt-4 text-xs uppercase tracking-[0.18em] text-slate-500">Last update</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">{agent.lastUpdate}</p>
+                  <p className="mt-2 truncate text-sm text-slate-300" title={agent.lastUpdate}>{agent.lastUpdate}</p>
                   <div className="mt-4 h-2 rounded-full bg-white/10">
                     <div className="h-2 rounded-full" style={{ width: `${agent.progress}%`, backgroundColor: theme.color }} />
                   </div>
@@ -415,7 +415,7 @@ function AgentsView({ data }: { data: MissionControlData }) {
                 <div className="mt-3 h-2 rounded-full bg-white/10">
                   <div className="h-2 rounded-full" style={{ width: `${agent.progress}%`, backgroundColor: theme.color }} />
                 </div>
-                <p className="mt-3 text-sm leading-6 text-slate-300">{agent.lastUpdate}</p>
+                <p className="mt-3 truncate text-sm text-slate-300" title={agent.lastUpdate}>{agent.lastUpdate}</p>
               </div>
             </article>
           )
