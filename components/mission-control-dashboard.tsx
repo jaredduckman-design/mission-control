@@ -111,8 +111,8 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
       case 'Portfolio':
         return {
           eyebrow: 'Portfolio',
-          title: 'Real holdings and account values from Warren’s live portfolio file.',
-          description: 'Use this view to see net worth, allocation mix, and top holdings without opening raw JSON or spreadsheets.',
+          title: 'DB-backed holdings, account values, and net worth in one place.',
+          description: 'Use this view to add or edit positions, log buys and sells, and keep Warren’s source file synced automatically.',
         }
       case 'Projects':
         return {
@@ -1070,7 +1070,7 @@ function OnboardingTour({ onClose }: { onClose: () => void }) {
     'Overview shows system health and a quick read of what matters now.',
     'Schedule visualizes cron cadence so you can see what runs and when.',
     'Agents explains who does what: Karl coordinates, Hex builds, Warren handles markets/ops.',
-    'Portfolio is reserved for finance snapshots and risk posture.',
+    'Portfolio is live and editable: holdings, buys/sells, and source sync all persist.',
     'Projects tracks delivery status and current blockers.',
     'Memory captures overnight logs and continuity context.',
     'Documents centralizes task briefs and source files so onboarding is faster.',
