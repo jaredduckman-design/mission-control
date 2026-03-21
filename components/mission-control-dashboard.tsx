@@ -6,6 +6,17 @@ import type { MissionControlData } from '../lib/mission-control-data'
 
 const navItems = ['Overview', 'Schedule', 'Agents', 'Portfolio', 'Projects', 'Memory', 'System', 'Settings'] as const
 
+const NAV_TOOLTIPS: Record<(typeof navItems)[number], string> = {
+  Overview: 'Quickly answers what is happening right now and what needs attention first.',
+  Schedule: 'Shows when background jobs run so you can predict workload and timing.',
+  Agents: 'Explains who each agent is, what they own, and whether they are healthy or blocked.',
+  Portfolio: 'Summarizes money posture and risk in simple percentages and holdings.',
+  Projects: 'Tracks delivery progress, recent commits, and blockers for active work.',
+  Memory: 'Surfaces prior notes and logs so decisions have context and continuity.',
+  System: 'Shows runtime reliability, cron health, and operational warnings.',
+  Settings: 'Controls update cadence, model routing, and onboarding help.',
+}
+
 type View = (typeof navItems)[number]
 
 type AgentName = 'Karl' | 'Hex' | 'Warren'
@@ -146,6 +157,7 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
                 <button
                   key={item}
                   onClick={() => setActiveView(item)}
+                  title={NAV_TOOLTIPS[item]}
                   className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-medium transition ${
                     active
                       ? 'bg-white text-slate-950 shadow-[0_10px_24px_rgba(255,255,255,0.12)]'
@@ -528,7 +540,7 @@ function ProjectsView({ data }: { data: MissionControlData }) {
 
       <div className="grid gap-4 xl:grid-cols-3">
         {data.projects.map((project) => (
-          <article key={project.name} className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+          <article key={project.name} className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]" title="Project cards show delivery status, ownership, and latest commit proof.">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-xl font-semibold text-white">{project.name}</h3>
@@ -652,7 +664,7 @@ function MemoryView({ data }: { data: MissionControlData }) {
                 {group.items.map((item) => {
                   const isExpanded = expanded === item.filename
                   return (
-                    <article key={item.filename} className="rounded-[28px] border border-white/8 bg-white/[0.03] p-4">
+                    <article key={item.filename} className="rounded-[28px] border border-white/8 bg-white/[0.03] p-4" title="Memory cards show what was recorded, when it changed, and let you open the full note.">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
                           <p className="text-lg font-semibold text-white">{item.filename}</p>
