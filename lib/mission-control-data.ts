@@ -460,6 +460,37 @@ async function getCronJobs(): Promise<{ jobs: CronJob[]; error?: string }> {
   }
 }
 
+async function getGatewayStatusSummary(): Promise<{ runtime: string; warnings: string[]; detail: string }> {
+  try {
+    const { stdout } = await execFileAsync('openclaw', ['gateway', 'status'], { cwd: PROJECT_ROOT, timeout: 15000 })
+    const lines = stdout
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+
+    const runtimeLine = lines.find((line) => line.toLowerCase().startsWith('runtime:'))
+    const warningLines = lines.filter(
+      (line) =>
+        line.toLowerCase().startsWith('service config issue:') ||
+        line.toLowerCase().startsWith('recommendation:') ||
+        line.toLowerCase().startsWith('probe note:'),
+    )
+
+    return {
+      runtime: runtimeLine ? runtimeLine.replace(/^Runtime:\s*/i, '') : 'Unknown',
+      warnings: warningLines,
+      detail: lines.find((line) => line.toLowerCase().startsWith('rpc probe:')) ?? 'Gateway status command succeeded.',
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Gateway status unavailable'
+    return {
+      runtime: 'Unavailable',
+      warnings: [`Gateway status check failed: ${message}`],
+      detail: 'Could not read openclaw gateway status from this runtime.',
+    }
+  }
+}
+
 function formatClock(timestamp?: number) {
   if (!timestamp) return 'Unscheduled'
   return new Date(timestamp).toLocaleTimeString('en-US', {
@@ -684,7 +715,7 @@ function buildErrorLog(jobs: CronJob[]): SystemErrorRow[] {
 export async function getMissionControlData(): Promise<MissionControlData> {
   const activeDay = getActiveDayLabel()
 
-  const [currentTask, workspaceReadme, memoryItems, memoryIndex, repoStat, projectMarkdownCount, cronResult, portfolioSourceRaw] = await Promise.all([
+  const [currentTask, workspaceReadme, memoryItems, memoryIndex, repoStat, projectMarkdownCount, cronResult, gatewayStatus, portfolioSourceRaw] = await Promise.all([
     safeRead(path.join('/Users/jaredbot/.openclaw/workspace-hex', 'CURRENT_TASK.md')),
     safeRead(path.join(PROJECT_ROOT, 'README.md')),
     getMemoryItems(),
@@ -692,6 +723,7 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     safeStat(PROJECT_ROOT),
     getProjectMarkdownCount(),
     getCronJobs(),
+    getGatewayStatusSummary(),
     safeRead(PORTFOLIO_SOURCE),
   ])
 
@@ -752,7 +784,7 @@ export async function getMissionControlData(): Promise<MissionControlData> {
       techStack: ['Next.js', 'Tailwind', 'TypeScript'],
       objective: 'Deliver a premium mission-control dashboard with real local OpenClaw signals and clear newcomer UX.',
       completedMilestones: ['Global shell + navigation', 'Overview + Schedule + Agents pages', 'Memory/System/Settings pass'],
-      remainingWork: ['Projects drill-in polish', 'System healthcheck wiring', 'Animation polish + loading skeletons'],
+      remainingWork: ['Projects drill-in polish', 'Automation controls polish', 'Animation polish + loading skeletons'],
       blockers: cronJobs.length ? [] : ['OpenClaw cron list unavailable in runtime'],
       assets: ['/Users/jaredbot/.openclaw/workspace-hex/projects/mission-control/mission-control-proof.png'],
     },
@@ -854,7 +886,7 @@ export async function getMissionControlData(): Promise<MissionControlData> {
   const quickStats = buildQuickStats(cronJobs)
 
   const systemMetrics: SystemMetric[] = [
-    { label: 'Runtime', value: 'OpenClaw · Mac mini', detail: uptimeHint },
+    { label: 'Runtime', value: 'OpenClaw · Mac mini', detail: `${uptimeHint} · ${gatewayStatus.runtime}` },
     { label: 'Cron jobs discovered', value: String(cronJobs.length), detail: cronJobs.length ? 'Read live via openclaw cron list --json.' : cronResult.error ?? 'Cron CLI unavailable.' },
     { label: 'Workspace memory files', value: String(memoryItems.length || 0), detail: 'Recent markdown notes scanned from /workspace/memory.' },
     { label: 'Project docs', value: 'CURRENT_TASK + README', detail: 'Task brief and project notes are still wired into the dashboard.' },
@@ -869,11 +901,11 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     { label: 'Gateway uptime', value: repoStat?.birthtime ? `${Math.max(1, Math.round((Date.now() - repoStat.birthtimeMs) / 3600000))}h` : 'Unknown', percent: 86, detail: 'Derived from local project/runtime activity window.' },
   ]
 
-  const securityWarnings = cronJobs.length
-    ? [
-        'OpenClaw status security diagnostics are not yet connected. Treat this panel as a placeholder until healthcheck integration lands.',
-      ]
-    : ['Cron data unavailable. Verify gateway access and run openclaw status before trusting automation health.']
+  const securityWarnings = gatewayStatus.warnings.length
+    ? gatewayStatus.warnings
+    : cronJobs.length
+      ? ['No gateway configuration warnings detected in live status output.']
+      : ['Cron data unavailable. Verify gateway access and run openclaw status before trusting automation health.']
 
   const settings: SettingsData = {
     updateFrequencyOptions: ['Every sprint', 'Twice daily', 'Daily only', 'Silent mode'],
