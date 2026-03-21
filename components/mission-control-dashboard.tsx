@@ -306,7 +306,7 @@ function OverviewView({ data }: { data: MissionControlData }) {
               <article key={`${item.time}-${item.title}`} className={`rounded-[28px] border p-4 ${toneClasses(item.tone)}`}>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] opacity-80">{item.time}</p>
                 <h4 className="mt-3 text-lg font-semibold text-white">{item.title}</h4>
-                <p className="mt-3 text-sm leading-6 text-inherit/90">{item.detail}</p>
+                <p className="mt-3 truncate text-sm text-inherit/90" title={item.detail}>{item.detail}</p>
               </article>
             ))}
           </div>
@@ -318,8 +318,8 @@ function OverviewView({ data }: { data: MissionControlData }) {
         <h3 className="mt-2 text-2xl font-semibold text-white">What Jared should know fast</h3>
         <div className="mt-5 space-y-3">
           {data.overview.morningBrief.map((item) => (
-            <div key={item} className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 text-sm leading-6 text-slate-200">
-              {item}
+            <div key={item} className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-200" title={item}>
+              <p className="truncate">{item}</p>
             </div>
           ))}
         </div>
@@ -327,7 +327,7 @@ function OverviewView({ data }: { data: MissionControlData }) {
         <div className="mt-5 rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,rgba(17,24,39,0.8),rgba(8,12,22,0.95))] p-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Source confidence</p>
           <p className="mt-2 text-2xl font-semibold text-white">Real local context first.</p>
-          <p className="mt-3 text-sm leading-6 text-slate-300">CURRENT_TASK, workspace memory files, and project docs are already driving these cards. Missing live integrations stay labeled as placeholders instead of being faked.</p>
+          <p className="mt-3 truncate text-sm text-slate-300" title="CURRENT_TASK, workspace memory files, and project docs are already driving these cards. Missing live integrations stay labeled as placeholders instead of being faked.">CURRENT_TASK, workspace memory files, and project docs are already driving these cards. Missing live integrations stay labeled as placeholders instead of being faked.</p>
         </div>
       </div>
       </div>
@@ -435,7 +435,7 @@ function AgentsView({ data }: { data: MissionControlData }) {
                   <span className="text-xs uppercase tracking-[0.18em] text-slate-500">{item.time}</span>
                 </div>
                 <p className="mt-2 text-sm" style={{ color: theme.color }}>{theme.emoji} {item.agent}</p>
-                <p className="mt-3 text-sm leading-6 text-slate-300">{item.detail}</p>
+                <p className="mt-3 truncate text-sm text-slate-300" title={item.detail}>{item.detail}</p>
               </article>
             )
           })}
