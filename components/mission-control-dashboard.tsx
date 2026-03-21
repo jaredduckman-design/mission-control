@@ -450,6 +450,9 @@ function PortfolioView({ data }: { data: MissionControlData }) {
 
   return (
     <section className="space-y-5" title="Portfolio summarizes money posture and risk at a glance.">
+      <div className="flex justify-end">
+        <SectionHint text="Portfolio shows your real account values and holdings so money risk is visible in seconds." />
+      </div>
       <article className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -554,6 +557,9 @@ function ProjectsView({ data }: { data: MissionControlData }) {
 
   return (
     <section className="space-y-5" title="Projects view tracks delivery progress and blockers so shipping stays predictable.">
+      <div className="flex justify-end">
+        <SectionHint text="Projects tells you what is shipping, what is blocked, and who owns each delivery stream." />
+      </div>
       <article className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -676,7 +682,11 @@ function MemoryView({ data }: { data: MissionControlData }) {
   }, [filtered])
 
   return (
-    <section className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]" title="Memory shows historical notes so new users understand continuity and prior decisions.">
+    <section className="space-y-4" title="Memory shows historical notes so new users understand continuity and prior decisions.">
+      <div className="flex justify-end">
+        <SectionHint text="Memory gives continuity by showing what was logged before, so decisions are grounded in real history." />
+      </div>
+      <div className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-2xl font-semibold text-white">Workspace Memory</h3>
         <input
@@ -742,6 +752,7 @@ function MemoryView({ data }: { data: MissionControlData }) {
           ))}
         </div>
       )}
+      </div>
     </section>
   )
 }
@@ -755,6 +766,9 @@ function SystemView({ data }: { data: MissionControlData }) {
 
   return (
     <section className="space-y-5" title="System view highlights runtime health so issues are caught before they cascade.">
+      <div className="flex justify-end">
+        <SectionHint text="System health shows if automation is stable, where failures are happening, and what needs intervention." />
+      </div>
       <div className="grid gap-4 xl:grid-cols-3">
         {data.system.metrics.map((item) => (
           <article key={item.label} className="rounded-[28px] border border-white/8 bg-[#091120]/90 p-4">
@@ -880,7 +894,11 @@ function SettingsView({ data, onReplayTour }: { data: MissionControlData; onRepl
   }, [selectedFrequency, morningBriefTime, marketBriefTime, modelOverrides])
 
   return (
-    <section className="grid gap-5 xl:grid-cols-2" title="Settings controls cadence, models, and routing so automation stays understandable.">
+    <section className="space-y-4" title="Settings controls cadence, models, and routing so automation stays understandable.">
+      <div className="flex justify-end">
+        <SectionHint text="Settings lets you tune cadence and routing so automation stays predictable for first-time users." />
+      </div>
+      <div className="grid gap-5 xl:grid-cols-2">
       <article className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
         <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Cadence controls</p>
         <h3 className="mt-2 text-2xl font-semibold text-white">Agent update frequency</h3>
@@ -930,6 +948,7 @@ function SettingsView({ data, onReplayTour }: { data: MissionControlData; onRepl
           Replay onboarding tour
         </button>
       </article>
+      </div>
     </section>
   )
 }
