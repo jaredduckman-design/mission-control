@@ -8,6 +8,7 @@ const execFileAsync = promisify(execFile)
 const WORKSPACE_ROOT = '/Users/jaredbot/.openclaw/workspace-hex'
 const PROJECT_ROOT = '/Users/jaredbot/.openclaw/workspace-hex/projects/mission-control'
 const MEMORY_ROOT = '/Users/jaredbot/.openclaw/workspace/memory'
+const PORTFOLIO_SOURCE = '/Users/jaredbot/.openclaw/workspace-warren/portfolio.json'
 const AGENT_NAMES = ['Karl', 'Hex', 'Warren'] as const
 const WEEKDAY_ORDER = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 const TODAY = new Date()
@@ -203,6 +204,25 @@ type CronJob = {
   }
 }
 
+type PortfolioSource = {
+  lastUpdated?: string
+  netWorth?: {
+    investable?: number
+    property?: number
+    debt?: number
+  }
+  personal?: {
+    total?: number
+    accounts?: Record<string, number>
+    holdings?: { ticker: string; name: string; value: number; weight: number }[]
+  }
+  business?: {
+    total?: number
+    cash?: number
+    holdings?: { ticker: string; name: string; value: number; weight: number }[]
+  }
+}
+
 export type MissionControlData = {
   generatedAt: string
   generatedLabel: string
@@ -295,6 +315,69 @@ function getMemoryCategory(filename: string): MemoryCategory {
 
 function getActiveDayLabel() {
   return new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(new Date())
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(value)
+}
+
+function normalizeCategoryLabel(key: string) {
+  const normalized = key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]/g, ' ')
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1)
+}
+
+function sanitizeWeight(weight: number) {
+  return Math.max(0.1, Math.min(100, Number(weight.toFixed(1))))
+}
+
+function buildAllocations(accounts: Record<string, number> | undefined, total: number) {
+  if (!accounts || total <= 0) return [{ category: 'Cash', weight: 100 }]
+
+  return Object.entries(accounts)
+    .filter(([, value]) => value > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([key, value]) => ({
+      category: normalizeCategoryLabel(key),
+      weight: sanitizeWeight((value / total) * 100),
+    }))
+}
+
+function buildPortfolioFromSource(source: PortfolioSource): PortfolioCard {
+  const personalTotal = source.personal?.total ?? 0
+  const businessTotal = source.business?.total ?? 0
+  const investable = source.netWorth?.investable ?? personalTotal + businessTotal
+
+  return {
+    netWorth: formatMoney(investable),
+    lastUpdated: source.lastUpdated ?? new Date().toLocaleDateString('en-US', { dateStyle: 'medium' }),
+    columns: [
+      {
+        label: 'Personal',
+        total: formatMoney(personalTotal),
+        allocations: buildAllocations(source.personal?.accounts, personalTotal),
+        holdings: (source.personal?.holdings ?? []).map((holding) => ({
+          ticker: holding.ticker,
+          name: holding.name,
+          value: formatMoney(holding.value),
+          weight: sanitizeWeight(holding.weight),
+        })),
+      },
+      {
+        label: 'Business',
+        total: formatMoney(businessTotal),
+        allocations: buildAllocations(
+          source.business?.cash ? { Invested: Math.max(0, businessTotal - source.business.cash), Cash: source.business.cash } : { Invested: businessTotal },
+          businessTotal,
+        ),
+        holdings: (source.business?.holdings ?? []).map((holding) => ({
+          ticker: holding.ticker,
+          name: holding.name,
+          value: formatMoney(holding.value),
+          weight: sanitizeWeight(holding.weight),
+        })),
+      },
+    ],
+  }
 }
 
 async function getProjectMarkdownCount() {
@@ -582,7 +665,7 @@ function buildErrorLog(jobs: CronJob[]): SystemErrorRow[] {
 export async function getMissionControlData(): Promise<MissionControlData> {
   const activeDay = getActiveDayLabel()
 
-  const [currentTask, workspaceReadme, memoryItems, memoryIndex, repoStat, projectMarkdownCount, cronResult] = await Promise.all([
+  const [currentTask, workspaceReadme, memoryItems, memoryIndex, repoStat, projectMarkdownCount, cronResult, portfolioSourceRaw] = await Promise.all([
     safeRead(path.join('/Users/jaredbot/.openclaw/workspace-hex', 'CURRENT_TASK.md')),
     safeRead(path.join(PROJECT_ROOT, 'README.md')),
     getMemoryItems(),
@@ -590,6 +673,7 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     safeStat(PROJECT_ROOT),
     getProjectMarkdownCount(),
     getCronJobs(),
+    safeRead(PORTFOLIO_SOURCE),
   ])
 
   const cronJobs = cronResult.jobs
@@ -711,45 +795,18 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     },
   ]
 
-  const portfolio: PortfolioCard = {
-    netWorth: '$1.48M',
-    lastUpdated: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
-    columns: [
-      {
-        label: 'Personal',
-        total: '$930K',
-        allocations: [
-          { category: 'Indexes', weight: 32 },
-          { category: 'Canadian banks', weight: 24 },
-          { category: 'Individual stocks', weight: 18 },
-          { category: 'Crypto', weight: 8 },
-          { category: 'Cash', weight: 18 },
-        ],
-        holdings: [
-          { ticker: 'VFV', name: 'S&P 500 Index ETF', value: '$180K', weight: 19 },
-          { ticker: 'RY', name: 'Royal Bank of Canada', value: '$125K', weight: 13 },
-          { ticker: 'TD', name: 'Toronto-Dominion Bank', value: '$97K', weight: 10 },
-          { ticker: 'BTC', name: 'Bitcoin', value: '$74K', weight: 8 },
-        ],
-      },
-      {
-        label: 'Business',
-        total: '$550K',
-        allocations: [
-          { category: 'Indexes', weight: 28 },
-          { category: 'Canadian banks', weight: 20 },
-          { category: 'Individual stocks', weight: 26 },
-          { category: 'Crypto', weight: 6 },
-          { category: 'Cash', weight: 20 },
-        ],
-        holdings: [
-          { ticker: 'XIC', name: 'iShares Core S&P/TSX', value: '$102K', weight: 19 },
-          { ticker: 'BMO', name: 'Bank of Montreal', value: '$84K', weight: 15 },
-          { ticker: 'GOOGL', name: 'Alphabet Inc.', value: '$71K', weight: 13 },
-          { ticker: 'CAD', name: 'Operating Cash', value: '$110K', weight: 20 },
-        ],
-      },
-    ],
+  let portfolio: PortfolioCard
+  try {
+    portfolio = buildPortfolioFromSource(JSON.parse(portfolioSourceRaw) as PortfolioSource)
+  } catch {
+    portfolio = {
+      netWorth: '$0',
+      lastUpdated: 'Unavailable',
+      columns: [
+        { label: 'Personal', total: '$0', allocations: [{ category: 'Cash', weight: 100 }], holdings: [] },
+        { label: 'Business', total: '$0', allocations: [{ category: 'Cash', weight: 100 }], holdings: [] },
+      ],
+    }
   }
 
   const schedule = buildSchedule(cronJobs)
