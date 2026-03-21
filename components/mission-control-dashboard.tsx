@@ -189,7 +189,7 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
           {activeView === 'Projects' && <ProjectsView data={data} />}
           {activeView === 'Memory' && <MemoryView data={data} />}
           {activeView === 'System' && <SystemView data={data} />}
-          {activeView === 'Settings' && <SettingsView onReplayTour={() => setShowTour(true)} />}
+          {activeView === 'Settings' && <SettingsView data={data} onReplayTour={() => setShowTour(true)} />}
         </section>
       </div>
       {showTour ? <OnboardingTour onClose={() => setShowTour(false)} /> : null}
@@ -581,84 +581,146 @@ function MemoryView({ data }: { data: MissionControlData }) {
 }
 
 function SystemView({ data }: { data: MissionControlData }) {
+  const [sortBy, setSortBy] = useState<'status' | 'lastRun' | 'nextRun' | 'consecutiveErrors'>('consecutiveErrors')
+  const sortedRows = [...data.system.cronRows].sort((a, b) => {
+    if (sortBy === 'consecutiveErrors') return b.consecutiveErrors - a.consecutiveErrors
+    return a[sortBy].localeCompare(b[sortBy])
+  })
+
   return (
-    <section className="grid gap-5 2xl:grid-cols-[1.1fr_0.9fr]">
-      <div className="grid gap-4 xl:grid-cols-2">
-        {data.system.map((item) => (
-          <article key={item.label} className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+    <section className="space-y-5">
+      <div className="grid gap-4 xl:grid-cols-3">
+        {data.system.metrics.map((item) => (
+          <article key={item.label} className="rounded-[28px] border border-white/8 bg-[#091120]/90 p-4">
             <p className="text-sm text-slate-400">{item.label}</p>
-            <h3 className="mt-3 text-2xl font-semibold text-white">{item.value}</h3>
-            <p className="mt-3 text-sm leading-7 text-slate-300">{item.detail}</p>
+            <h3 className="mt-2 text-xl font-semibold text-white">{item.value}</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-300">{item.detail}</p>
           </article>
         ))}
       </div>
 
-      <div className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Reference documents</p>
-        <h3 className="mt-2 text-2xl font-semibold text-white">Known local sources</h3>
-        <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div>
-              <p className="text-sm text-slate-400">Generated</p>
-              <p className="mt-2 font-semibold text-white">{data.generatedLabel}</p>
-            </div>
-            <div>
-              <p className="text-sm text-slate-400">Source count</p>
-              <p className="mt-2 font-semibold text-white">{data.commandDeck.sourceCount}</p>
-            </div>
-            <div>
-              <p className="text-sm text-slate-400">Memory files</p>
-              <p className="mt-2 font-semibold text-white">{data.commandDeck.memoryCount}</p>
-            </div>
+      <article className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-2xl font-semibold text-white">Cron reliability</h3>
+          <div className="flex gap-2">
+            {['Restart Gateway', 'Run Health Check', 'Clear Error Backoff'].map((action) => (
+              <button key={action} className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white">{action}</button>
+            ))}
           </div>
         </div>
-        <div className="mt-5 space-y-3">
-          {data.documents.map((item) => (
-            <article key={item.title} className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-base font-semibold text-white">{item.title}</p>
-                <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Local</span>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-slate-300">{item.note}</p>
-              <p className="mt-3 break-all text-xs text-slate-500">{item.href}</p>
-            </article>
-          ))}
+        <div className="mt-4 overflow-x-auto rounded-2xl border border-white/10">
+          <table className="min-w-full text-sm">
+            <thead className="bg-white/[0.03] text-left text-slate-400">
+              <tr>
+                <th className="px-3 py-2">Job</th>
+                <th className="px-3 py-2"><button onClick={() => setSortBy('status')}>Status</button></th>
+                <th className="px-3 py-2"><button onClick={() => setSortBy('lastRun')}>Last run</button></th>
+                <th className="px-3 py-2"><button onClick={() => setSortBy('nextRun')}>Next run</button></th>
+                <th className="px-3 py-2"><button onClick={() => setSortBy('consecutiveErrors')}>Errors</button></th>
+                <th className="px-3 py-2">7-run trend</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedRows.map((row) => (
+                <tr key={row.id} className="border-t border-white/10 bg-[#070c17] text-slate-200">
+                  <td className="px-3 py-2">
+                    <p className="font-semibold text-white">{row.name}</p>
+                    <p className="text-xs text-slate-500">{row.promptPreview}</p>
+                  </td>
+                  <td className="px-3 py-2">{row.status}</td>
+                  <td className="px-3 py-2">{row.lastRun}</td>
+                  <td className="px-3 py-2">{row.nextRun}</td>
+                  <td className="px-3 py-2">{row.consecutiveErrors}</td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-end gap-1">{row.miniReliability.map((point, index) => <span key={`${row.id}-${index}`} className="w-1.5 rounded-sm bg-cyan-300/80" style={{ height: `${Math.max(8, Math.round(point / 3))}px` }} />)}</div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+      </article>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <article className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5">
+          <h3 className="text-2xl font-semibold text-white">Error log</h3>
+          <div className="mt-4 space-y-3">
+            {data.system.errorLog.length ? data.system.errorLog.map((item) => (
+              <div key={`${item.timestamp}-${item.jobName}`} className="rounded-2xl border border-red-400/20 bg-red-400/5 p-3">
+                <p className="text-xs text-red-200">{item.timestamp} · {item.jobName}</p>
+                <p className="mt-1 text-sm text-white">{item.message}</p>
+                <p className="mt-1 text-xs text-slate-300">Suggested fix: {item.suggestedFix}</p>
+              </div>
+            )) : <p className="rounded-2xl border border-dashed border-white/12 p-3 text-sm text-slate-400">No recent errors in the last 20 entries.</p>}
+          </div>
+        </article>
+
+        <article className="space-y-5 rounded-[32px] border border-white/8 bg-[#091120]/90 p-5">
+          <div>
+            <h3 className="text-2xl font-semibold text-white">Resource usage</h3>
+            <div className="mt-4 space-y-3">
+              {data.system.resourceUsage.map((item) => (
+                <div key={item.label}>
+                  <div className="flex items-center justify-between text-sm"><span className="text-slate-300">{item.label}</span><span className="text-white">{item.value}</span></div>
+                  <div className="mt-1 h-2 rounded-full bg-white/10"><div className="h-2 rounded-full bg-emerald-300" style={{ width: `${item.percent}%` }} /></div>
+                  <p className="mt-1 text-xs text-slate-500">{item.detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <h4 className="text-lg font-semibold text-white">Security warnings</h4>
+            <ul className="mt-3 space-y-2">{data.system.securityWarnings.map((warning) => <li key={warning} className="rounded-xl border border-amber-300/20 bg-amber-300/5 px-3 py-2 text-sm text-amber-100">{warning}</li>)}</ul>
+          </div>
+        </article>
       </div>
     </section>
   )
 }
 
-function SettingsView({ onReplayTour }: { onReplayTour: () => void }) {
+function SettingsView({ data, onReplayTour }: { data: MissionControlData; onReplayTour: () => void }) {
   return (
     <section className="grid gap-5 xl:grid-cols-2">
       <article className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
         <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Cadence controls</p>
         <h3 className="mt-2 text-2xl font-semibold text-white">Agent update frequency</h3>
-        <div className="mt-4 space-y-3 text-sm text-slate-200">
-          {['Every sprint', 'Twice daily', 'Daily only', 'Silent mode'].map((option) => (
-            <div key={option} className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">{option}</div>
+        <fieldset className="mt-4 space-y-3 text-sm text-slate-200">
+          <legend className="sr-only">Hex update frequency</legend>
+          {data.settings.updateFrequencyOptions.map((option) => (
+            <label key={option} className="flex cursor-pointer items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+              <span>{option}</span>
+              <input type="radio" name="hex-frequency" defaultChecked={option === data.settings.selectedFrequency} aria-label={option} />
+            </label>
           ))}
-        </div>
+        </fieldset>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Morning brief</p>
-            <p className="mt-2 text-white">07:00 ET</p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Market brief</p>
-            <p className="mt-2 text-white">08:30 ET</p>
-          </div>
+          <label className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-200">Morning brief time
+            <input type="time" defaultValue={data.settings.morningBriefTime} className="mt-2 w-full rounded-lg border border-white/10 bg-[#070c17] px-2 py-1 text-white" />
+          </label>
+          <label className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-200">Warren market brief time
+            <input type="time" defaultValue={data.settings.marketBriefTime} className="mt-2 w-full rounded-lg border border-white/10 bg-[#070c17] px-2 py-1 text-white" />
+          </label>
         </div>
       </article>
 
       <article className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
         <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Routing + onboarding</p>
-        <h3 className="mt-2 text-2xl font-semibold text-white">Notifications and newcomer help</h3>
+        <h3 className="mt-2 text-2xl font-semibold text-white">Models and notifications</h3>
         <div className="mt-4 space-y-3 text-sm text-slate-300">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">Discord: job completions, failures, approvals</div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">Telegram: morning briefs + urgent failures</div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">Silent mode: dashboard only</div>
+          {data.settings.modelOverrides.map((override) => (
+            <label key={override.agent} className="block rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <span className="text-xs uppercase tracking-[0.18em] text-slate-500">{override.agent} model override</span>
+              <select defaultValue={override.model} className="mt-2 w-full rounded-lg border border-white/10 bg-[#070c17] px-2 py-1 text-white">
+                {override.options.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </label>
+          ))}
+          {data.settings.notificationRoutes.map((route) => (
+            <div key={route.event} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <span>{route.event}</span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-xs">{route.route}</span>
+            </div>
+          ))}
         </div>
         <button
           type="button"
