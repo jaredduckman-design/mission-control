@@ -366,38 +366,194 @@ function AgentsView({ data }: { data: MissionControlData }) {
 }
 
 function PortfolioView({ data }: { data: MissionControlData }) {
+  const palette = ['#00ff88', '#f59e0b', '#3b82f6', '#ef4444', '#888888']
+
+  const donut = (entries: { category: string; weight: number }[]) => {
+    let current = 0
+    const slices = entries.map((entry, index) => {
+      const start = current
+      current += entry.weight
+      return `${palette[index % palette.length]} ${start}% ${current}%`
+    })
+    return `conic-gradient(${slices.join(', ')})`
+  }
+
   return (
-    <section className="grid gap-5 xl:grid-cols-3">
-      {data.portfolio.map((item) => (
-        <article key={item.label} className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
-          <p className="text-sm text-slate-400">{item.label}</p>
-          <h3 className="mt-3 text-3xl font-semibold text-white">{item.value}</h3>
-          <p className="mt-4 text-sm leading-7 text-slate-300">{item.detail}</p>
-        </article>
-      ))}
+    <section className="space-y-5">
+      <article className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-200/70">Warren portfolio</p>
+            <h3 className="mt-2 text-3xl font-semibold text-white">Net worth: {data.portfolio.netWorth}</h3>
+            <p className="mt-2 text-sm text-slate-400">Last updated {data.portfolio.lastUpdated}</p>
+          </div>
+          <button className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-300/20">Refresh</button>
+        </div>
+      </article>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        {data.portfolio.columns.map((column) => (
+          <article key={column.label} className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+            <div className="flex items-center justify-between">
+              <h4 className="text-2xl font-semibold text-white">{column.label}</h4>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-100">{column.total}</span>
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center">
+              <div className="mx-auto h-32 w-32 rounded-full" style={{ background: donut(column.allocations) }} title="Indexes, banks, stocks, crypto, cash allocation" />
+              <div className="space-y-2 text-sm">
+                {column.allocations.map((entry, index) => (
+                  <div key={`${column.label}-${entry.category}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-slate-200">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: palette[index % palette.length] }} />
+                      <span>{entry.category}</span>
+                    </div>
+                    <span className="text-slate-400">{entry.weight}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-5 overflow-hidden rounded-2xl border border-white/10">
+              <table className="min-w-full divide-y divide-white/10 text-sm">
+                <thead className="bg-white/[0.03] text-left text-slate-400">
+                  <tr>
+                    <th className="px-3 py-2">Ticker</th>
+                    <th className="px-3 py-2">Name</th>
+                    <th className="px-3 py-2">Value</th>
+                    <th className="px-3 py-2">Weight</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/10">
+                  {column.holdings.map((holding) => (
+                    <tr key={`${column.label}-${holding.ticker}`} className="bg-[#070c17] text-slate-200">
+                      <td className="px-3 py-2 font-semibold text-white">{holding.ticker}</td>
+                      <td className="px-3 py-2">{holding.name}</td>
+                      <td className="px-3 py-2">{holding.value}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-20 rounded-full bg-white/10">
+                            <div className="h-2 rounded-full bg-amber-300" style={{ width: `${holding.weight}%` }} />
+                          </div>
+                          <span>{holding.weight}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </article>
+        ))}
+      </div>
     </section>
   )
 }
 
 function ProjectsView({ data }: { data: MissionControlData }) {
+  const [selected, setSelected] = useState<MissionControlData['projects'][number] | null>(null)
+  const [projectName, setProjectName] = useState('')
+  const [projectDesc, setProjectDesc] = useState('')
+  const [addState, setAddState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
+  const submitProject = async () => {
+    if (!projectName.trim()) return
+    setAddState('saving')
+    try {
+      const response = await fetch('/api/projects/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: projectName, description: projectDesc }),
+      })
+      if (!response.ok) throw new Error('save failed')
+      setProjectName('')
+      setProjectDesc('')
+      setAddState('saved')
+    } catch {
+      setAddState('error')
+    }
+  }
+
   return (
-    <section className="grid gap-4 xl:grid-cols-3">
-      {data.projects.map((project) => (
-        <article key={project.name} className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-xl font-semibold text-white">{project.name}</h3>
-              <p className="mt-2 text-sm text-slate-400">Owner · {project.owner}</p>
+    <section className="space-y-5">
+      <article className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Hex projects</p>
+            <h3 className="mt-2 text-2xl font-semibold text-white">Active delivery board</h3>
+          </div>
+          <a href="/Users/jaredbot/.openclaw/workspace-hex/CURRENT_TASK.md" className="rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100">Task source</a>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <input value={projectName} onChange={(event) => setProjectName(event.target.value)} placeholder="New project name" className="rounded-xl border border-white/10 bg-[#070c17] px-3 py-2 text-sm text-white placeholder:text-slate-500" />
+          <input value={projectDesc} onChange={(event) => setProjectDesc(event.target.value)} placeholder="One-line description" className="rounded-xl border border-white/10 bg-[#070c17] px-3 py-2 text-sm text-white placeholder:text-slate-500" />
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          <button type="button" onClick={submitProject} className="rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-300/20">Add new project</button>
+          <span className="text-xs text-slate-400">{addState === 'saved' ? 'Saved to CURRENT_TASK.md' : addState === 'error' ? 'Could not write to CURRENT_TASK.md' : addState === 'saving' ? 'Saving…' : 'Writes directly to workspace task brief'}</span>
+        </div>
+      </article>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        {data.projects.map((project) => (
+          <article key={project.name} className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-xl font-semibold text-white">{project.name}</h3>
+                <p className="mt-2 text-sm text-slate-400">Owner · {project.owner}</p>
+              </div>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-100">{project.status}</span>
             </div>
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-100">{project.status}</span>
-          </div>
-          <p className="mt-4 text-sm leading-7 text-slate-300">{project.detail}</p>
-          <div className="mt-5 h-2 rounded-full bg-white/10">
-            <div className="h-2 rounded-full bg-[linear-gradient(90deg,rgba(125,211,252,1),rgba(52,211,153,1))]" style={{ width: `${project.progress}%` }} />
-          </div>
-          <p className="mt-3 text-sm text-slate-300">{project.progress}% complete</p>
-        </article>
-      ))}
+            <p className="mt-4 text-sm leading-7 text-slate-300">{project.detail}</p>
+            <p className="mt-4 text-xs uppercase tracking-[0.18em] text-slate-500">Last commit</p>
+            <p className="mt-1 text-sm text-slate-200">{project.lastCommitHash} · {project.lastCommitMessage}</p>
+            <p className="mt-1 text-xs text-slate-500">{project.lastCommitDate}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {project.techStack.map((item) => (
+                <span key={`${project.name}-${item}`} className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-200">{item}</span>
+              ))}
+            </div>
+            <div className="mt-5 h-2 rounded-full bg-white/10">
+              <div className="h-2 rounded-full bg-[linear-gradient(90deg,rgba(125,211,252,1),rgba(52,211,153,1))]" style={{ width: `${project.progress}%` }} />
+            </div>
+            <div className="mt-4 flex items-center justify-between">
+              <p className="text-sm text-slate-300">{project.progress}% complete</p>
+              <button type="button" onClick={() => setSelected(project)} className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/[0.08]">View details</button>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      {selected ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4">
+          <article className="w-full max-w-3xl rounded-[28px] border border-white/10 bg-[#0b1222] p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Project detail</p>
+                <h4 className="mt-2 text-2xl font-semibold text-white">{selected.name}</h4>
+              </div>
+              <button onClick={() => setSelected(null)} className="rounded-lg border border-white/10 px-3 py-1 text-sm text-slate-300">Close</button>
+            </div>
+            <p className="mt-4 text-sm leading-7 text-slate-300">{selected.objective}</p>
+            <div className="mt-5 grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-emerald-300">Completed</p>
+                <ul className="mt-2 space-y-2 text-sm text-slate-200">{selected.completedMilestones.map((item) => <li key={item}>• {item}</li>)}</ul>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-cyan-300">Remaining</p>
+                <ul className="mt-2 space-y-2 text-sm text-slate-200">{selected.remainingWork.map((item) => <li key={item}>• {item}</li>)}</ul>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-red-300">Blockers</p>
+                <ul className="mt-2 space-y-2 text-sm text-slate-200">{selected.blockers.length ? selected.blockers.map((item) => <li key={item}>• {item}</li>) : <li>• None right now</li>}</ul>
+              </div>
+            </div>
+            <p className="mt-5 text-xs text-slate-500">Assets: {selected.assets.length ? selected.assets.join(', ') : 'No assets attached yet'}</p>
+          </article>
+        </div>
+      ) : null}
     </section>
   )
 }

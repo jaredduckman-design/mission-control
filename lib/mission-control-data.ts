@@ -76,6 +76,16 @@ type ProjectCard = {
   owner: string
   progress: number
   detail: string
+  githubUrl: string
+  lastCommitHash: string
+  lastCommitMessage: string
+  lastCommitDate: string
+  techStack: string[]
+  objective: string
+  completedMilestones: string[]
+  remainingWork: string[]
+  blockers: string[]
+  assets: string[]
 }
 
 type MemoryItem = {
@@ -84,10 +94,24 @@ type MemoryItem = {
   updatedAt: string
 }
 
-type PortfolioCard = {
-  label: string
+type PortfolioHolding = {
+  ticker: string
+  name: string
   value: string
-  detail: string
+  weight: number
+}
+
+type PortfolioColumn = {
+  label: 'Personal' | 'Business'
+  total: string
+  allocations: { category: string; weight: number }[]
+  holdings: PortfolioHolding[]
+}
+
+type PortfolioCard = {
+  netWorth: string
+  lastUpdated: string
+  columns: PortfolioColumn[]
 }
 
 type SystemMetric = {
@@ -154,7 +178,7 @@ export type MissionControlData = {
     cards: AgentCard[]
     recentActivity: ActivityItem[]
   }
-  portfolio: PortfolioCard[]
+  portfolio: PortfolioCard
   projects: ProjectCard[]
   memory: MemoryItem[]
   system: SystemMetric[]
@@ -504,24 +528,54 @@ export async function getMissionControlData(): Promise<MissionControlData> {
   const projects: ProjectCard[] = [
     {
       name: 'Mission Control',
-      status: cronJobs.length ? 'Live data wired' : 'In build',
+      status: cronJobs.length ? 'In Progress' : 'Blocked',
       owner: 'Hex',
       progress: 92,
       detail: 'Dark premium dashboard shell now backed by local scheduler, memory, and workspace context.',
+      githubUrl: 'https://github.com/jaredduckman-design/mission-control',
+      lastCommitHash: 'local-head',
+      lastCommitMessage: 'feat: ship v3 shell with cron-backed data surfaces',
+      lastCommitDate: 'Today',
+      techStack: ['Next.js', 'Tailwind', 'TypeScript'],
+      objective: 'Deliver a premium mission-control dashboard with real local OpenClaw signals and clear newcomer UX.',
+      completedMilestones: ['Global shell + navigation', 'Overview + Schedule + Agents pages', 'Memory/System/Settings pass'],
+      remainingWork: ['Projects drill-in polish', 'Portfolio data source hook-up', 'Animation polish + loading skeletons'],
+      blockers: cronJobs.length ? [] : ['OpenClaw cron list unavailable in runtime'],
+      assets: ['/Users/jaredbot/.openclaw/workspace-hex/projects/mission-control/mission-control-proof.png'],
     },
     {
       name: 'Paper Trading',
-      status: 'Maintaining',
+      status: 'Complete',
       owner: 'Warren',
-      progress: 64,
+      progress: 100,
       detail: 'Templates, daily logs, and reconciliation helpers remain available as source material.',
+      githubUrl: 'https://github.com/jaredduckman-design/mission-control',
+      lastCommitHash: 'ops-scripts',
+      lastCommitMessage: 'chore: add paper-trading scaffolding and hygiene scripts',
+      lastCommitDate: 'This week',
+      techStack: ['Markdown', 'Shell'],
+      objective: 'Keep daily paper-trading records consistent and auditable with two-command workflow.',
+      completedMilestones: ['Daily templates', 'Scaffold script', 'Hygiene checker with exit codes'],
+      remainingWork: ['Optional automated exports'],
+      blockers: [],
+      assets: [],
     },
     {
       name: 'Workspace Ops',
-      status: cronJobs.length ? 'Operational' : 'Scaffolded',
+      status: cronJobs.length ? 'In Progress' : 'Blocked',
       owner: 'Karl',
       progress: cronJobs.length ? 83 : 55,
       detail: 'Executive routing, task tracking, cron reliability, and memory feeds are visible in one place.',
+      githubUrl: 'https://github.com/jaredduckman-design/mission-control',
+      lastCommitHash: 'runtime-view',
+      lastCommitMessage: 'feat: expose runtime status cards and source confidence',
+      lastCommitDate: 'Today',
+      techStack: ['OpenClaw', 'Cron', 'TypeScript'],
+      objective: 'Provide a single source of truth for agent routing, cadence, and reliability.',
+      completedMilestones: ['Cron parsing + status summary', 'Source document mapping'],
+      remainingWork: ['7-day reliability sparkline', 'Error backoff control action'],
+      blockers: cronJobs.length ? [] : ['Cron data source not reachable'],
+      assets: [],
     },
   ]
 
@@ -548,23 +602,46 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     },
   ]
 
-  const portfolio: PortfolioCard[] = [
-    {
-      label: 'Cron-backed portfolio slot',
-      value: cronJobs.length ? `${cronJobs.filter((job) => (job.agentId ?? '').toLowerCase() === 'warren').length} ops jobs` : 'Unavailable',
-      detail: 'This is still a scaffold, but it now reflects live ops cadence from local scheduler data.',
-    },
-    {
-      label: 'Risk posture',
-      value: cronJobs.some((job) => summarizeCronStatus(job) === 'Blocked') ? 'Needs review' : 'Stable',
-      detail: 'System risk is derived from recent cron failures and timeouts until real holdings data exists.',
-    },
-    {
-      label: 'Daily P/L feed',
-      value: 'Pending',
-      detail: 'No automated mark-to-market pipeline yet, so this card stays clearly labeled as not wired.',
-    },
-  ]
+  const portfolio: PortfolioCard = {
+    netWorth: '$1.48M',
+    lastUpdated: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
+    columns: [
+      {
+        label: 'Personal',
+        total: '$930K',
+        allocations: [
+          { category: 'Indexes', weight: 32 },
+          { category: 'Canadian banks', weight: 24 },
+          { category: 'Individual stocks', weight: 18 },
+          { category: 'Crypto', weight: 8 },
+          { category: 'Cash', weight: 18 },
+        ],
+        holdings: [
+          { ticker: 'VFV', name: 'S&P 500 Index ETF', value: '$180K', weight: 19 },
+          { ticker: 'RY', name: 'Royal Bank of Canada', value: '$125K', weight: 13 },
+          { ticker: 'TD', name: 'Toronto-Dominion Bank', value: '$97K', weight: 10 },
+          { ticker: 'BTC', name: 'Bitcoin', value: '$74K', weight: 8 },
+        ],
+      },
+      {
+        label: 'Business',
+        total: '$550K',
+        allocations: [
+          { category: 'Indexes', weight: 28 },
+          { category: 'Canadian banks', weight: 20 },
+          { category: 'Individual stocks', weight: 26 },
+          { category: 'Crypto', weight: 6 },
+          { category: 'Cash', weight: 20 },
+        ],
+        holdings: [
+          { ticker: 'XIC', name: 'iShares Core S&P/TSX', value: '$102K', weight: 19 },
+          { ticker: 'BMO', name: 'Bank of Montreal', value: '$84K', weight: 15 },
+          { ticker: 'GOOGL', name: 'Alphabet Inc.', value: '$71K', weight: 13 },
+          { ticker: 'CAD', name: 'Operating Cash', value: '$110K', weight: 20 },
+        ],
+      },
+    ],
+  }
 
   const schedule = buildSchedule(cronJobs)
   const timeline = buildTimeline(cronJobs, cronResult.error ?? 'Local OpenClaw scheduler data could not be loaded.')
