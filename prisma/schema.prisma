@@ -41,3 +41,14 @@ model PortfolioTrade {
 
   holding PortfolioHolding @relation(fields: [holdingId], references: [id], onDelete: Cascade)
 }
+
+model AppSettings {
+  id                 Int      @id @default(1)
+  selectedFrequency  String   @default("Every sprint")
+  morningBriefTime   String   @default("07:00")
+  marketBriefTime    String   @default("08:30")
+  modelKarl          String   @default("gpt-5.3-codex")
+  modelHex           String   @default("gpt-5.3-codex")
+  modelWarren        String   @default("gpt-5.3-codex")
+  updatedAt          DateTime @updatedAt
+}

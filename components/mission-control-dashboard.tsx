@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { useRouter } from 'next/navigation'
 import type { MissionControlData } from '../lib/mission-control-data'
@@ -971,31 +971,22 @@ function SettingsView({ data, onReplayTour }: { data: MissionControlData; onRepl
   const [modelOverrides, setModelOverrides] = useState<Record<string, string>>(
     Object.fromEntries(data.settings.modelOverrides.map((override) => [override.agent, override.model])),
   )
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
-  useEffect(() => {
+  const saveSettings = async () => {
+    setSaveState('saving')
     try {
-      const raw = localStorage.getItem('mission-control-settings-v1')
-      if (!raw) return
-      const saved = JSON.parse(raw)
-      if (saved.selectedFrequency) setSelectedFrequency(saved.selectedFrequency)
-      if (saved.morningBriefTime) setMorningBriefTime(saved.morningBriefTime)
-      if (saved.marketBriefTime) setMarketBriefTime(saved.marketBriefTime)
-      if (saved.modelOverrides) setModelOverrides((prev) => ({ ...prev, ...saved.modelOverrides }))
+      const response = await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selectedFrequency, morningBriefTime, marketBriefTime, modelOverrides }),
+      })
+      if (!response.ok) throw new Error('save failed')
+      setSaveState('saved')
     } catch {
-      // ignore malformed local settings
+      setSaveState('error')
     }
-  }, [])
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        'mission-control-settings-v1',
-        JSON.stringify({ selectedFrequency, morningBriefTime, marketBriefTime, modelOverrides }),
-      )
-    } catch {
-      // ignore storage issues
-    }
-  }, [selectedFrequency, morningBriefTime, marketBriefTime, modelOverrides])
+  }
 
   return (
     <section className="space-y-4" title="Settings controls cadence, models, and routing so automation stays understandable.">
@@ -1044,10 +1035,14 @@ function SettingsView({ data, onReplayTour }: { data: MissionControlData; onRepl
             </div>
           ))}
         </div>
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <button type="button" onClick={saveSettings} className="rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-2 text-sm font-semibold text-emerald-100 hover:bg-emerald-300/20">Save settings</button>
+          <span className="text-xs text-slate-400">{saveState === 'saved' ? 'Saved to local database' : saveState === 'error' ? 'Save failed' : saveState === 'saving' ? 'Saving…' : 'Changes persist in Prisma + SQLite'}</span>
+        </div>
         <button
           type="button"
           onClick={onReplayTour}
-          className="mt-5 rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-300/20"
+          className="mt-4 rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-300/20"
         >
           Replay onboarding tour
         </button>

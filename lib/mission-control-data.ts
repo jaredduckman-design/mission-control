@@ -794,9 +794,10 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     },
   ]
 
-  const [meta, dbHoldings] = await Promise.all([
+  const [meta, dbHoldings, appSettings] = await Promise.all([
     prisma.portfolioMeta.findUnique({ where: { id: 1 } }),
     prisma.portfolioHolding.findMany({ orderBy: [{ account: 'asc' }, { value: 'desc' }] }),
+    prisma.appSettings.upsert({ where: { id: 1 }, update: {}, create: { id: 1 } }),
   ])
 
   const buildColumn = (label: 'Personal' | 'Business') => {
@@ -869,13 +870,13 @@ export async function getMissionControlData(): Promise<MissionControlData> {
 
   const settings: SettingsData = {
     updateFrequencyOptions: ['Every sprint', 'Twice daily', 'Daily only', 'Silent mode'],
-    selectedFrequency: 'Every sprint',
-    morningBriefTime: '07:00',
-    marketBriefTime: '08:30',
+    selectedFrequency: appSettings.selectedFrequency,
+    morningBriefTime: appSettings.morningBriefTime,
+    marketBriefTime: appSettings.marketBriefTime,
     modelOverrides: [
-      { agent: 'Karl', model: 'gpt-5.3-codex', options: ['gpt-5.3-codex', 'claude-sonnet-4-6', 'o3'] },
-      { agent: 'Hex', model: 'gpt-5.3-codex', options: ['gpt-5.3-codex', 'claude-sonnet-4-6', 'o3'] },
-      { agent: 'Warren', model: 'gpt-5.3-codex', options: ['gpt-5.3-codex', 'claude-sonnet-4-6', 'o3'] },
+      { agent: 'Karl', model: appSettings.modelKarl, options: ['gpt-5.3-codex', 'claude-sonnet-4-6', 'o3'] },
+      { agent: 'Hex', model: appSettings.modelHex, options: ['gpt-5.3-codex', 'claude-sonnet-4-6', 'o3'] },
+      { agent: 'Warren', model: appSettings.modelWarren, options: ['gpt-5.3-codex', 'claude-sonnet-4-6', 'o3'] },
     ],
     notificationRoutes: [
       { event: 'Job completions', route: 'Discord' },
