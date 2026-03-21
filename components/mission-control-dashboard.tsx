@@ -339,7 +339,7 @@ function ScheduleView({ data }: { data: MissionControlData }) {
                       {job.status ? <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${statusBadgeClass(job.status)}`}>{job.status}</span> : null}
                     </div>
                     <p className="mt-2 text-base font-semibold text-white">{job.title}</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-300">{job.detail}</p>
+                    <p className="mt-2 truncate text-sm text-slate-300">{job.detail}</p>
                   </div>
                 ))
               ) : (
@@ -548,7 +548,7 @@ function ProjectsView({ data }: { data: MissionControlData }) {
               </div>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-100">{project.status}</span>
             </div>
-            <p className="mt-4 text-sm leading-7 text-slate-300">{project.detail}</p>
+            <p className="mt-4 truncate text-sm text-slate-300">{project.detail}</p>
             <p className="mt-4 text-xs uppercase tracking-[0.18em] text-slate-500">Last commit</p>
             <p className="mt-1 text-sm text-slate-200">{project.lastCommitHash} · {project.lastCommitMessage}</p>
             <p className="mt-1 text-xs text-slate-500">{project.lastCommitDate}</p>
@@ -714,7 +714,7 @@ function SystemView({ data }: { data: MissionControlData }) {
           <article key={item.label} className="rounded-[28px] border border-white/8 bg-[#091120]/90 p-4">
             <p className="text-sm text-slate-400">{item.label}</p>
             <h3 className="mt-2 text-xl font-semibold text-white">{item.value}</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-300">{item.detail}</p>
+            <p className="mt-2 truncate text-sm text-slate-300">{item.detail}</p>
           </article>
         ))}
       </div>
