@@ -7,7 +7,7 @@ const execFileAsync = promisify(execFile)
 
 const WORKSPACE_ROOT = '/Users/jaredbot/.openclaw/workspace-hex'
 const PROJECT_ROOT = '/Users/jaredbot/.openclaw/workspace-hex/projects/mission-control'
-const MEMORY_ROOT = path.join(WORKSPACE_ROOT, 'memory')
+const MEMORY_ROOT = '/Users/jaredbot/.openclaw/workspace/memory'
 const AGENT_NAMES = ['Karl', 'Hex', 'Warren'] as const
 const WEEKDAY_ORDER = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 const TODAY = new Date()

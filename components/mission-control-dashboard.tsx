@@ -8,6 +8,14 @@ const navItems = ['Overview', 'Schedule', 'Agents', 'Portfolio', 'Projects', 'Me
 
 type View = (typeof navItems)[number]
 
+type AgentName = 'Karl' | 'Hex' | 'Warren'
+
+const AGENT_THEME: Record<AgentName, { color: string; emoji: string; tagline: string }> = {
+  Karl: { color: '#ef4444', emoji: '🦞', tagline: 'Your AI chief of staff' },
+  Hex: { color: '#00ff88', emoji: '💻', tagline: 'Builds while you sleep' },
+  Warren: { color: '#f59e0b', emoji: '💰', tagline: 'Watches your money' },
+}
+
 function toneClasses(tone: 'violet' | 'cyan' | 'emerald' | 'amber') {
   switch (tone) {
     case 'cyan':
@@ -21,15 +29,19 @@ function toneClasses(tone: 'violet' | 'cyan' | 'emerald' | 'amber') {
   }
 }
 
-function accentClasses(accent: 'violet' | 'cyan' | 'emerald') {
-  switch (accent) {
-    case 'violet':
-      return 'bg-violet-400 shadow-[0_0_24px_rgba(167,139,250,0.8)]'
-    case 'cyan':
-      return 'bg-cyan-300 shadow-[0_0_24px_rgba(103,232,249,0.8)]'
-    case 'emerald':
-      return 'bg-emerald-300 shadow-[0_0_24px_rgba(110,231,183,0.8)]'
-  }
+function agentTheme(name: string) {
+  return AGENT_THEME[name as AgentName] ?? { color: '#94a3b8', emoji: '🤖', tagline: 'Autonomous operator' }
+}
+
+function statusBadgeClass(status: string) {
+  const normalized = status.toUpperCase()
+  if (normalized === 'RUNNING') return 'bg-[#00ff88] text-black border-[#00ff88]'
+  if (normalized === 'BLOCKED') return 'bg-[#ef4444] text-white border-[#ef4444]'
+  if (normalized === 'HEALTHY') return 'bg-emerald-500 text-white border-emerald-400'
+  if (normalized === 'COORDINATING') return 'bg-blue-500 text-white border-blue-400'
+  if (normalized === 'SHIPPING') return 'bg-emerald-500 text-white border-emerald-400'
+  if (normalized === 'MONITORING') return 'bg-amber-400 text-black border-amber-300'
+  return 'bg-white/10 text-white border-white/20'
 }
 
 export function MissionControlDashboard({ data }: { data: MissionControlData }) {
@@ -129,6 +141,7 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
           <nav className="mt-6 space-y-2">
             {navItems.map((item, index) => {
               const active = item === activeView
+              const dotColor = item === 'Agents' ? AGENT_THEME.Karl.color : item === 'Projects' ? AGENT_THEME.Hex.color : item === 'Portfolio' ? AGENT_THEME.Warren.color : '#64748b'
               return (
                 <button
                   key={item}
@@ -139,7 +152,7 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
                       : 'border border-white/5 bg-white/[0.03] text-slate-300 hover:border-white/10 hover:bg-white/[0.06] hover:text-white'
                   }`}
                 >
-                  <span>{item}</span>
+                  <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: dotColor }} />{item}</span>
                   <span className={`text-xs ${active ? 'text-slate-700' : 'text-slate-500'}`}>{String(index + 1).padStart(2, '0')}</span>
                 </button>
               )
@@ -172,13 +185,20 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
-                {data.overview.quickStats.map((item) => (
-                  <div key={item.label} className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-                    <p className="text-sm text-slate-400">{item.label}</p>
-                    <p className="mt-2 text-2xl font-semibold text-white">{item.value}</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-300">{item.detail}</p>
-                  </div>
-                ))}
+                {data.overview.quickStats.map((item) => {
+                  const valueClass = item.label.toLowerCase().includes('running')
+                    ? 'text-[#00ff88]'
+                    : item.label.toLowerCase().includes('blocked')
+                      ? 'text-[#ef4444]'
+                      : 'text-white'
+                  return (
+                    <div key={item.label} className="rounded-3xl border border-white/10 bg-white/[0.04] p-4" title="Quick health counters so you can see system risk in seconds.">
+                      <p className="text-sm text-slate-400">{item.label}</p>
+                      <p className={`mt-2 text-2xl font-semibold ${valueClass}`}>{item.value}</p>
+                      <p className="mt-2 text-sm leading-6 text-slate-300">{item.detail}</p>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           </header>
@@ -200,7 +220,7 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
 
 function OverviewView({ data }: { data: MissionControlData }) {
   return (
-    <section className="grid gap-5 2xl:grid-cols-[1.2fr_0.9fr]">
+    <section className="grid gap-5 2xl:grid-cols-[1.2fr_0.9fr]" title="Overview explains what is happening right now and where attention is needed.">
       <div className="space-y-5">
         <div className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
           <div className="flex items-center justify-between gap-4 border-b border-white/8 pb-4">
@@ -212,27 +232,31 @@ function OverviewView({ data }: { data: MissionControlData }) {
           </div>
 
           <div className="mt-5 grid gap-4 xl:grid-cols-3">
-            {data.overview.agentCards.map((agent) => (
-              <article key={agent.name} className="rounded-[28px] border border-white/8 bg-white/[0.03] p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className={`h-2.5 w-2.5 rounded-full ${accentClasses(agent.accent)}`} />
-                      <p className="text-lg font-semibold text-white">{agent.name}</p>
+            {data.overview.agentCards.map((agent) => {
+              const theme = agentTheme(agent.name)
+              return (
+                <article key={agent.name} className="rounded-[28px] border border-white/8 border-l-4 bg-white/[0.03] p-4" style={{ borderLeftColor: theme.color }} title="Each agent card shows ownership, live status, and progress so you know who is doing what.">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: theme.color, boxShadow: `0 0 16px ${theme.color}` }} />
+                        <span className="text-2xl" aria-hidden>{theme.emoji}</span>
+                        <p className="text-lg font-semibold text-white">{agent.name}</p>
+                      </div>
+                      <p className="mt-1 text-sm text-slate-400">{theme.tagline}</p>
                     </div>
-                    <p className="mt-1 text-sm text-slate-400">{agent.role}</p>
+                    <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] ${statusBadgeClass(agent.status)}`}>{agent.status}</span>
                   </div>
-                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-100">{agent.status}</span>
-                </div>
 
-                <p className="mt-4 text-sm leading-6 text-slate-200">{agent.focus}</p>
-                <p className="mt-4 text-xs uppercase tracking-[0.18em] text-slate-500">Last update</p>
-                <p className="mt-2 text-sm leading-6 text-slate-300">{agent.lastUpdate}</p>
-                <div className="mt-4 h-2 rounded-full bg-white/10">
-                  <div className="h-2 rounded-full bg-[linear-gradient(90deg,rgba(125,211,252,1),rgba(52,211,153,1))]" style={{ width: `${agent.progress}%` }} />
-                </div>
-              </article>
-            ))}
+                  <p className="mt-4 truncate text-sm leading-6 text-slate-200">{agent.focus}</p>
+                  <p className="mt-4 text-xs uppercase tracking-[0.18em] text-slate-500">Last update</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">{agent.lastUpdate}</p>
+                  <div className="mt-4 h-2 rounded-full bg-white/10">
+                    <div className="h-2 rounded-full" style={{ width: `${agent.progress}%`, backgroundColor: theme.color }} />
+                  </div>
+                </article>
+              )
+            })}
           </div>
         </div>
 
@@ -274,7 +298,7 @@ function OverviewView({ data }: { data: MissionControlData }) {
 
 function ScheduleView({ data }: { data: MissionControlData }) {
   return (
-    <section className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+    <section className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]" title="Schedule shows what jobs run each day so timing and workload are predictable.">
       <div className="grid gap-4 xl:grid-cols-5">
         {data.schedule.map((day) => (
           <article
@@ -301,7 +325,7 @@ function ScheduleView({ data }: { data: MissionControlData }) {
                   <div key={`${day.day}-${job.time}-${job.title}`} className="rounded-3xl border border-white/8 bg-[#070c17] p-4">
                     <div className="flex items-start justify-between gap-3">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/70">{job.time}</p>
-                      {job.status ? <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-200">{job.status}</span> : null}
+                      {job.status ? <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${statusBadgeClass(job.status)}`}>{job.status}</span> : null}
                     </div>
                     <p className="mt-2 text-base font-semibold text-white">{job.title}</p>
                     <p className="mt-2 text-sm leading-6 text-slate-300">{job.detail}</p>
@@ -322,44 +346,51 @@ function ScheduleView({ data }: { data: MissionControlData }) {
 
 function AgentsView({ data }: { data: MissionControlData }) {
   return (
-    <section className="grid gap-5 2xl:grid-cols-[1.1fr_0.9fr]">
+    <section className="grid gap-5 2xl:grid-cols-[1.1fr_0.9fr]" title="Agents view makes ownership clear: who is doing what, and whether they are healthy or blocked.">
       <div className="grid gap-4 xl:grid-cols-3">
-        {data.agents.cards.map((agent) => (
-          <article key={agent.name} className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
-            <div className="flex items-center gap-2">
-              <span className={`h-2.5 w-2.5 rounded-full ${accentClasses(agent.accent)}`} />
-              <h3 className="text-xl font-semibold text-white">{agent.name}</h3>
-            </div>
-            <p className="mt-2 text-sm text-slate-400">{agent.role}</p>
-            <p className="mt-4 text-sm leading-7 text-slate-200">{agent.focus}</p>
-            <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-300">Status</span>
-                <span className="text-white">{agent.status}</span>
+        {data.agents.cards.map((agent) => {
+          const theme = agentTheme(agent.name)
+          return (
+            <article key={agent.name} className="rounded-[32px] border border-white/8 border-l-4 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]" style={{ borderLeftColor: theme.color }} title="Agent identity card: who they are, what they own, and how execution is going.">
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: theme.color, boxShadow: `0 0 16px ${theme.color}` }} />
+                <span className="text-2xl" aria-hidden>{theme.emoji}</span>
+                <h3 className="text-xl font-semibold text-white">{agent.name}</h3>
               </div>
-              <div className="mt-3 h-2 rounded-full bg-white/10">
-                <div className="h-2 rounded-full bg-[linear-gradient(90deg,rgba(125,211,252,1),rgba(52,211,153,1))]" style={{ width: `${agent.progress}%` }} />
+              <p className="mt-2 text-sm text-slate-400">{theme.tagline}</p>
+              <p className="mt-4 truncate text-sm leading-7 text-slate-200">{agent.focus}</p>
+              <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.04] p-4">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-300">Status</span>
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] ${statusBadgeClass(agent.status)}`}>{agent.status}</span>
+                </div>
+                <div className="mt-3 h-2 rounded-full bg-white/10">
+                  <div className="h-2 rounded-full" style={{ width: `${agent.progress}%`, backgroundColor: theme.color }} />
+                </div>
+                <p className="mt-3 text-sm leading-6 text-slate-300">{agent.lastUpdate}</p>
               </div>
-              <p className="mt-3 text-sm leading-6 text-slate-300">{agent.lastUpdate}</p>
-            </div>
-          </article>
-        ))}
+            </article>
+          )
+        })}
       </div>
 
       <div className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
         <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Recent activity</p>
         <h3 className="mt-2 text-2xl font-semibold text-white">Latest motion</h3>
         <div className="mt-5 space-y-3">
-          {data.agents.recentActivity.map((item) => (
-            <article key={`${item.agent}-${item.summary}`} className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-base font-semibold text-white">{item.summary}</p>
-                <span className="text-xs uppercase tracking-[0.18em] text-slate-500">{item.time}</span>
-              </div>
-              <p className="mt-2 text-sm text-slate-400">{item.agent}</p>
-              <p className="mt-3 text-sm leading-6 text-slate-300">{item.detail}</p>
-            </article>
-          ))}
+          {data.agents.recentActivity.map((item) => {
+            const theme = agentTheme(item.agent)
+            return (
+              <article key={`${item.agent}-${item.summary}`} className="rounded-3xl border border-white/10 border-l-4 bg-white/[0.04] p-4" style={{ borderLeftColor: theme.color }} title="Activity feed shows who triggered each update so accountability is obvious.">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-base font-semibold text-white">{item.summary}</p>
+                  <span className="text-xs uppercase tracking-[0.18em] text-slate-500">{item.time}</span>
+                </div>
+                <p className="mt-2 text-sm" style={{ color: theme.color }}>{theme.emoji} {item.agent}</p>
+                <p className="mt-3 text-sm leading-6 text-slate-300">{item.detail}</p>
+              </article>
+            )
+          })}
         </div>
       </div>
     </section>
@@ -380,7 +411,7 @@ function PortfolioView({ data }: { data: MissionControlData }) {
   }
 
   return (
-    <section className="space-y-5">
+    <section className="space-y-5" title="Portfolio summarizes money posture and risk at a glance.">
       <article className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -476,7 +507,7 @@ function ProjectsView({ data }: { data: MissionControlData }) {
   }
 
   return (
-    <section className="space-y-5">
+    <section className="space-y-5" title="Projects view tracks delivery progress and blockers so shipping stays predictable.">
       <article className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -502,7 +533,7 @@ function ProjectsView({ data }: { data: MissionControlData }) {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-xl font-semibold text-white">{project.name}</h3>
-                <p className="mt-2 text-sm text-slate-400">Owner · {project.owner}</p>
+                <p className="mt-2 flex items-center gap-2 text-sm text-slate-400"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: agentTheme(project.owner).color }} />Owner · {project.owner}</p>
               </div>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-100">{project.status}</span>
             </div>
@@ -596,7 +627,7 @@ function MemoryView({ data }: { data: MissionControlData }) {
   }, [filtered])
 
   return (
-    <section className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+    <section className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]" title="Memory shows historical notes so new users understand continuity and prior decisions.">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-2xl font-semibold text-white">Workspace Memory</h3>
         <input
@@ -666,7 +697,7 @@ function SystemView({ data }: { data: MissionControlData }) {
   })
 
   return (
-    <section className="space-y-5">
+    <section className="space-y-5" title="System view highlights runtime health so issues are caught before they cascade.">
       <div className="grid gap-4 xl:grid-cols-3">
         {data.system.metrics.map((item) => (
           <article key={item.label} className="rounded-[28px] border border-white/8 bg-[#091120]/90 p-4">
@@ -758,7 +789,7 @@ function SystemView({ data }: { data: MissionControlData }) {
 
 function SettingsView({ data, onReplayTour }: { data: MissionControlData; onReplayTour: () => void }) {
   return (
-    <section className="grid gap-5 xl:grid-cols-2">
+    <section className="grid gap-5 xl:grid-cols-2" title="Settings controls cadence, models, and routing so automation stays understandable.">
       <article className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
         <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Cadence controls</p>
         <h3 className="mt-2 text-2xl font-semibold text-white">Agent update frequency</h3>
