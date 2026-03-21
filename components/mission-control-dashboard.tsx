@@ -75,9 +75,9 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
         }
       case 'Portfolio':
         return {
-          eyebrow: 'Portfolio scaffold',
-          title: 'Holdings and risk can live here once real feeds are ready.',
-          description: 'For now this section stays honest: we expose the slots, show what is missing, and leave room for actual market data later.',
+          eyebrow: 'Portfolio',
+          title: 'Real holdings and account values from Warren’s live portfolio file.',
+          description: 'Use this view to see net worth, allocation mix, and top holdings without opening raw JSON or spreadsheets.',
         }
       case 'Projects':
         return {
@@ -430,7 +430,9 @@ function PortfolioView({ data }: { data: MissionControlData }) {
             <h3 className="mt-2 text-3xl font-semibold text-white">Net worth: {data.portfolio.netWorth}</h3>
             <p className="mt-2 text-sm text-slate-400">Last updated {data.portfolio.lastUpdated}</p>
           </div>
-          <button className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-300/20">Refresh</button>
+          <p className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-2 text-sm font-semibold text-amber-100" title="Data source: /Users/jaredbot/.openclaw/workspace-warren/portfolio.json">
+            Source: portfolio.json
+          </p>
         </div>
       </article>
 
@@ -468,21 +470,27 @@ function PortfolioView({ data }: { data: MissionControlData }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/10">
-                  {column.holdings.map((holding) => (
-                    <tr key={`${column.label}-${holding.ticker}`} className="bg-[#070c17] text-slate-200">
-                      <td className="px-3 py-2 font-semibold text-white">{holding.ticker}</td>
-                      <td className="px-3 py-2">{holding.name}</td>
-                      <td className="px-3 py-2">{holding.value}</td>
-                      <td className="px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-20 rounded-full bg-white/10">
-                            <div className="h-2 rounded-full bg-amber-300" style={{ width: `${holding.weight}%` }} />
+                  {column.holdings.length ? (
+                    column.holdings.map((holding) => (
+                      <tr key={`${column.label}-${holding.ticker}`} className="bg-[#070c17] text-slate-200">
+                        <td className="px-3 py-2 font-semibold text-white">{holding.ticker}</td>
+                        <td className="px-3 py-2">{holding.name}</td>
+                        <td className="px-3 py-2">{holding.value}</td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-20 rounded-full bg-white/10">
+                              <div className="h-2 rounded-full bg-amber-300" style={{ width: `${holding.weight}%` }} />
+                            </div>
+                            <span>{holding.weight}%</span>
                           </div>
-                          <span>{holding.weight}%</span>
-                        </div>
-                      </td>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr className="bg-[#070c17] text-slate-400">
+                      <td colSpan={4} className="px-3 py-4 text-center">No holdings found in portfolio.json for this account.</td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
