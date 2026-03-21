@@ -52,3 +52,14 @@ model AppSettings {
   modelWarren        String   @default("gpt-5.3-codex")
   updatedAt          DateTime @updatedAt
 }
+
+model ProjectItem {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  status      String   @default("Queued")
+  owner       String   @default("Hex")
+  progress    Int      @default(5)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

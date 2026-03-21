@@ -581,6 +581,7 @@ function PortfolioView({ data }: { data: MissionControlData }) {
 }
 
 function ProjectsView({ data }: { data: MissionControlData }) {
+  const router = useRouter()
   const [selected, setSelected] = useState<MissionControlData['projects'][number] | null>(null)
   const [projectName, setProjectName] = useState('')
   const [projectDesc, setProjectDesc] = useState('')
@@ -599,6 +600,7 @@ function ProjectsView({ data }: { data: MissionControlData }) {
       setProjectName('')
       setProjectDesc('')
       setAddState('saved')
+      router.refresh()
     } catch {
       setAddState('error')
     }
@@ -615,7 +617,7 @@ function ProjectsView({ data }: { data: MissionControlData }) {
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Hex projects</p>
             <h3 className="mt-2 text-2xl font-semibold text-white">Active delivery board</h3>
           </div>
-          <a href="/Users/jaredbot/.openclaw/workspace-hex/CURRENT_TASK.md" className="rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100">Task source</a>
+          <span className="rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100">Source: Prisma + SQLite</span>
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -624,7 +626,7 @@ function ProjectsView({ data }: { data: MissionControlData }) {
         </div>
         <div className="mt-3 flex items-center gap-3">
           <button type="button" onClick={submitProject} className="rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-300/20">Add new project</button>
-          <span className="text-xs text-slate-400">{addState === 'saved' ? 'Saved to CURRENT_TASK.md' : addState === 'error' ? 'Could not write to CURRENT_TASK.md' : addState === 'saving' ? 'Saving…' : 'Writes directly to workspace task brief'}</span>
+          <span className="text-xs text-slate-400">{addState === 'saved' ? 'Saved to local database' : addState === 'error' ? 'Could not save project' : addState === 'saving' ? 'Saving…' : 'Writes directly to Prisma + SQLite'}</span>
         </div>
       </article>
 

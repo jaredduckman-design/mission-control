@@ -1,0 +1,10 @@
+CREATE TABLE "ProjectItem" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "name" TEXT NOT NULL,
+  "description" TEXT,
+  "status" TEXT NOT NULL DEFAULT 'Queued',
+  "owner" TEXT NOT NULL DEFAULT 'Hex',
+  "progress" INTEGER NOT NULL DEFAULT 5,
+  "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" DATETIME NOT NULL
+);

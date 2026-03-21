@@ -285,25 +285,6 @@ function percentFromContent(source: string, fallback: number) {
   return Number.isFinite(parsed) ? Math.max(8, Math.min(100, parsed)) : fallback
 }
 
-function parseProjectIntake(source: string) {
-  const match = source.match(/## Project Intake\n([\s\S]*?)(\n## |$)/)
-  if (!match?.[1]) return []
-
-  return match[1]
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith('- [ ]') || line.startsWith('- []') || line.startsWith('-'))
-    .map((line) => line.replace(/^-\s*\[[^\]]*\]\s*/, '').replace(/^-\s*/, '').trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [namePart, detailPart] = line.split('—').map((item) => item.trim())
-      const name = namePart.replace(/_\(added.*\)_/i, '').trim()
-      const detail = (detailPart ?? '').replace(/_\(added.*\)_/i, '').trim()
-      return { name, detail }
-    })
-    .filter((item) => item.name)
-}
-
 function titleFromPath(filePath: string) {
   return path.basename(filePath).replace(/[-_]/g, ' ').replace(/\.md$/i, '')
 }
@@ -662,7 +643,6 @@ export async function getMissionControlData(): Promise<MissionControlData> {
   )
 
   const memoryPreview = memoryItems[0]?.preview ?? 'Recent workspace memory notes will surface here once available.'
-  const intakeProjects = parseProjectIntake(currentTask)
   const uptimeHint = repoStat?.birthtime
     ? `Project folder active since ${repoStat.birthtime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
     : 'Project folder ready'
@@ -696,6 +676,13 @@ export async function getMissionControlData(): Promise<MissionControlData> {
       lastUpdate: 'Market brief jobs now surface blocked states instead of pretending everything is fine.',
     },
   ]
+
+  const [meta, dbHoldings, appSettings, projectItems] = await Promise.all([
+    prisma.portfolioMeta.findUnique({ where: { id: 1 } }),
+    prisma.portfolioHolding.findMany({ orderBy: [{ account: 'asc' }, { value: 'desc' }] }),
+    prisma.appSettings.upsert({ where: { id: 1 }, update: {}, create: { id: 1 } }),
+    prisma.projectItem.findMany({ orderBy: { createdAt: 'desc' }, take: 5 }),
+  ])
 
   const baseProjects: ProjectCard[] = [
     {
@@ -751,18 +738,18 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     },
   ]
 
-  const intakeCards: ProjectCard[] = intakeProjects.map((item) => ({
+  const intakeCards: ProjectCard[] = projectItems.map((item) => ({
     name: item.name,
-    status: 'Queued',
-    owner: 'Hex',
-    progress: 5,
-    detail: item.detail || 'Queued from CURRENT_TASK project intake.',
+    status: item.status,
+    owner: item.owner,
+    progress: item.progress,
+    detail: item.description || 'Queued from Mission Control project intake.',
     githubUrl: 'https://github.com/jaredduckman-design/mission-control',
     lastCommitHash: 'pending',
     lastCommitMessage: 'Awaiting implementation',
-    lastCommitDate: 'Not started',
+    lastCommitDate: item.createdAt.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
     techStack: ['TBD'],
-    objective: item.detail || 'Intake request from CURRENT_TASK.md',
+    objective: item.description || 'Intake request saved in local Prisma database.',
     completedMilestones: [],
     remainingWork: ['Scope approval', 'Implementation', 'QA + proof'],
     blockers: [],
@@ -793,12 +780,6 @@ export async function getMissionControlData(): Promise<MissionControlData> {
       time: 'Today',
     },
   ]
-
-  const [meta, dbHoldings, appSettings] = await Promise.all([
-    prisma.portfolioMeta.findUnique({ where: { id: 1 } }),
-    prisma.portfolioHolding.findMany({ orderBy: [{ account: 'asc' }, { value: 'desc' }] }),
-    prisma.appSettings.upsert({ where: { id: 1 }, update: {}, create: { id: 1 } }),
-  ])
 
   const buildColumn = (label: 'Personal' | 'Business') => {
     const holdings = dbHoldings.filter((holding) => holding.account === label)
