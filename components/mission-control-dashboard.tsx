@@ -6,6 +6,17 @@ import type { MissionControlData } from '../lib/mission-control-data'
 
 const navItems = ['Overview', 'Schedule', 'Agents', 'Portfolio', 'Projects', 'Memory', 'System', 'Settings'] as const
 
+const NAV_OWNER: Record<(typeof navItems)[number], AgentName> = {
+  Overview: 'Karl',
+  Schedule: 'Karl',
+  Agents: 'Karl',
+  Portfolio: 'Warren',
+  Projects: 'Hex',
+  Memory: 'Karl',
+  System: 'Karl',
+  Settings: 'Karl',
+}
+
 const NAV_TOOLTIPS: Record<(typeof navItems)[number], string> = {
   Overview: 'Quickly answers what is happening right now and what needs attention first.',
   Schedule: 'Shows when background jobs run so you can predict workload and timing.',
@@ -164,7 +175,7 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
           <nav className="mt-6 space-y-2">
             {navItems.map((item, index) => {
               const active = item === activeView
-              const dotColor = item === 'Agents' ? AGENT_THEME.Karl.color : item === 'Projects' ? AGENT_THEME.Hex.color : item === 'Portfolio' ? AGENT_THEME.Warren.color : '#64748b'
+              const dotColor = AGENT_THEME[NAV_OWNER[item]].color
               return (
                 <button
                   key={item}
