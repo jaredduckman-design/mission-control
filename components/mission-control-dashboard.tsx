@@ -216,7 +216,7 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
               <div className="max-w-4xl">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan-200/70">{heading.eyebrow}</p>
                 <h2 className="mt-3 text-3xl font-semibold leading-tight text-white md:text-5xl">{heading.title}</h2>
-                <p className="mt-4 text-sm leading-7 text-slate-300 md:text-base">{heading.description}</p>
+                <p className="mt-4 truncate text-sm text-slate-300 md:text-base" title={heading.description}>{heading.description}</p>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
