@@ -88,10 +88,15 @@ type ProjectCard = {
   assets: string[]
 }
 
+type MemoryCategory = 'overnight' | 'daily-digest' | 'reliability' | 'queue' | 'other'
+
 type MemoryItem = {
   title: string
+  filename: string
   preview: string
+  content: string
   updatedAt: string
+  category: MemoryCategory
 }
 
 type PortfolioHolding = {
@@ -279,6 +284,15 @@ function titleFromPath(filePath: string) {
   return path.basename(filePath).replace(/[-_]/g, ' ').replace(/\.md$/i, '')
 }
 
+function getMemoryCategory(filename: string): MemoryCategory {
+  const key = filename.toLowerCase()
+  if (/(overnight|nightly|night)/.test(key)) return 'overnight'
+  if (/(daily|digest)/.test(key)) return 'daily-digest'
+  if (/(reliab|incident|health|error|uptime)/.test(key)) return 'reliability'
+  if (/queue/.test(key)) return 'queue'
+  return 'other'
+}
+
 function getActiveDayLabel() {
   return new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(new Date())
 }
@@ -305,22 +319,24 @@ async function getMemoryItems() {
         }),
     )
 
-    const recentFiles = files.sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs).slice(0, 4)
+    const sortedFiles = files.sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs)
 
     const items = await Promise.all(
-      recentFiles.map(async ({ fullPath, stat }) => {
+      sortedFiles.map(async ({ fullPath, entry, stat }) => {
         const content = await safeRead(fullPath)
         const preview = content
           .split('\n')
-          .map((line) => line.trim())
-          .filter((line) => line && !line.startsWith('#'))
-          .slice(0, 2)
-          .join(' ')
+          .slice(0, 3)
+          .join('\n')
+          .trim()
 
         return {
           title: titleFromPath(fullPath),
-          preview: preview || 'Recent workspace memory note available for review.',
+          filename: entry,
+          preview: preview || 'No preview lines available in this file.',
+          content: content || '_Empty file_',
           updatedAt: stat.mtime.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
+          category: getMemoryCategory(entry),
         }
       }),
     )
