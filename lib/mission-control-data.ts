@@ -7,7 +7,7 @@ const execFileAsync = promisify(execFile)
 
 const WORKSPACE_ROOT = '/Users/jaredbot/.openclaw/workspace-hex'
 const PROJECT_ROOT = '/Users/jaredbot/.openclaw/workspace-hex/projects/mission-control'
-const MEMORY_ROOT = '/Users/jaredbot/.openclaw/workspace/memory'
+const MEMORY_ROOT = '/Users/jaredbot/.openclaw/workspace-hex/memory'
 const AGENT_NAMES = ['Karl', 'Hex', 'Warren'] as const
 const WEEKDAY_ORDER = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 const TODAY = new Date()
@@ -759,7 +759,7 @@ export async function getMissionControlData(): Promise<MissionControlData> {
   const systemMetrics: SystemMetric[] = [
     { label: 'Runtime', value: 'OpenClaw · Mac mini', detail: uptimeHint },
     { label: 'Cron jobs discovered', value: String(cronJobs.length), detail: cronJobs.length ? 'Read live via openclaw cron list --json.' : cronResult.error ?? 'Cron CLI unavailable.' },
-    { label: 'Workspace memory files', value: String(memoryItems.length || 0), detail: 'Recent markdown notes scanned from /workspace/memory.' },
+    { label: 'Workspace memory files', value: String(memoryItems.length || 0), detail: 'Recent markdown notes scanned from /workspace-hex/memory.' },
     { label: 'Project docs', value: 'CURRENT_TASK + README', detail: 'Task brief and project notes are still wired into the dashboard.' },
     { label: 'Memory index', value: memoryIndex.trim() || 'Available', detail: 'Top-level workspace memory marker detected.' },
   ]
