@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import type { MissionControlData } from '../lib/mission-control-data'
 
-const navItems = ['Overview', 'Schedule', 'Agents', 'Portfolio', 'Projects', 'Memory', 'System'] as const
+const navItems = ['Overview', 'Schedule', 'Agents', 'Portfolio', 'Projects', 'Memory', 'System', 'Settings'] as const
 
 type View = (typeof navItems)[number]
 
@@ -33,6 +33,7 @@ function accentClasses(accent: 'violet' | 'cyan' | 'emerald') {
 
 export function MissionControlDashboard({ data }: { data: MissionControlData }) {
   const [activeView, setActiveView] = useState<View>('Overview')
+  const [showTour, setShowTour] = useState(true)
 
   const heading = useMemo(() => {
     switch (activeView) {
@@ -71,6 +72,12 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
           eyebrow: 'System snapshot',
           title: 'Runtime health, data sources, and deployment readiness.',
           description: 'This page turns the app into an actual control surface instead of a pretty shell.',
+        }
+      case 'Settings':
+        return {
+          eyebrow: 'Settings',
+          title: 'Control cadence, model overrides, and notification routing.',
+          description: 'This page keeps the automation understandable for newcomers with plain-language controls and an onboarding replay.',
         }
       default:
         return {
@@ -182,8 +189,10 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
           {activeView === 'Projects' && <ProjectsView data={data} />}
           {activeView === 'Memory' && <MemoryView data={data} />}
           {activeView === 'System' && <SystemView data={data} />}
+          {activeView === 'Settings' && <SettingsView onReplayTour={() => setShowTour(true)} />}
         </section>
       </div>
+      {showTour ? <OnboardingTour onClose={() => setShowTour(false)} /> : null}
     </main>
   )
 }
@@ -461,5 +470,86 @@ function SystemView({ data }: { data: MissionControlData }) {
         </div>
       </div>
     </section>
+  )
+}
+
+function SettingsView({ onReplayTour }: { onReplayTour: () => void }) {
+  return (
+    <section className="grid gap-5 xl:grid-cols-2">
+      <article className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Cadence controls</p>
+        <h3 className="mt-2 text-2xl font-semibold text-white">Agent update frequency</h3>
+        <div className="mt-4 space-y-3 text-sm text-slate-200">
+          {['Every sprint', 'Twice daily', 'Daily only', 'Silent mode'].map((option) => (
+            <div key={option} className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">{option}</div>
+          ))}
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Morning brief</p>
+            <p className="mt-2 text-white">07:00 ET</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Market brief</p>
+            <p className="mt-2 text-white">08:30 ET</p>
+          </div>
+        </div>
+      </article>
+
+      <article className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Routing + onboarding</p>
+        <h3 className="mt-2 text-2xl font-semibold text-white">Notifications and newcomer help</h3>
+        <div className="mt-4 space-y-3 text-sm text-slate-300">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">Discord: job completions, failures, approvals</div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">Telegram: morning briefs + urgent failures</div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">Silent mode: dashboard only</div>
+        </div>
+        <button
+          type="button"
+          onClick={onReplayTour}
+          className="mt-5 rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-300/20"
+        >
+          Replay onboarding tour
+        </button>
+      </article>
+    </section>
+  )
+}
+
+function OnboardingTour({ onClose }: { onClose: () => void }) {
+  const steps = [
+    'Overview shows system health and a quick read of what matters now.',
+    'Schedule visualizes cron cadence so you can see what runs and when.',
+    'Agents explains who does what: Karl coordinates, Hex builds, Warren handles markets/ops.',
+    'Portfolio is reserved for finance snapshots and risk posture.',
+    'Projects tracks delivery status and current blockers.',
+    'Memory captures overnight logs and continuity context.',
+    'System exposes runtime health, source confidence, and local references.',
+    'Settings controls update frequency, routing, and lets you replay this tour anytime.',
+  ]
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div className="w-full max-w-2xl rounded-[28px] border border-white/10 bg-[#0b1222] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.6)]">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">First-time tour</p>
+        <h3 className="mt-2 text-2xl font-semibold text-white">Welcome to Mission Control</h3>
+        <p className="mt-3 text-sm leading-7 text-slate-300">OpenClaw runs background agents automatically. This dashboard makes the work visible in plain English.</p>
+        <ol className="mt-5 space-y-2">
+          {steps.map((step, index) => (
+            <li key={step} className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm leading-6 text-slate-200">
+              <span className="mr-2 text-cyan-200">{index + 1}.</span>
+              {step}
+            </li>
+          ))}
+        </ol>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-5 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100"
+        >
+          Got it
+        </button>
+      </div>
+    </div>
   )
 }
