@@ -266,6 +266,15 @@ async function safeStat(filePath: string) {
   }
 }
 
+async function pathExists(filePath: string) {
+  try {
+    await fs.access(filePath)
+    return true
+  } catch {
+    return false
+  }
+}
+
 function extractRecentLine(source: string, matcher: RegExp, fallback: string) {
   const line = source
     .split('\n')
@@ -867,12 +876,20 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     ],
   }
 
-  const documents: DocumentLink[] = [
-    { title: 'CURRENT_TASK.md', note: 'The live brief for the current Mission Control sprint.', href: '/Users/jaredbot/.openclaw/workspace-hex/CURRENT_TASK.md' },
+  const currentTaskPath = (await pathExists(path.join(WORKSPACE_ROOT, 'CURRENT_TASK.md')))
+    ? path.join(WORKSPACE_ROOT, 'CURRENT_TASK.md')
+    : '/Users/jaredbot/.openclaw/workspace/CURRENT_TASK.md'
+
+  const candidateDocs: DocumentLink[] = [
+    { title: 'CURRENT_TASK.md', note: 'The live brief for the current Mission Control sprint.', href: currentTaskPath },
     { title: 'README.md', note: 'Project notes and local quickstart.', href: path.join(PROJECT_ROOT, 'README.md') },
-    { title: 'paper-trading-hygiene-checklist.md', note: 'Daily close and reconciliation context.', href: path.join(PROJECT_ROOT, 'paper-trading-hygiene-checklist.md') },
     { title: 'memory/', note: 'Recent workspace notes used for the Memory feed.', href: MEMORY_ROOT },
   ]
+
+  const documents: DocumentLink[] = []
+  for (const doc of candidateDocs) {
+    if (await pathExists(doc.href)) documents.push(doc)
+  }
 
   const generatedLabel = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
   const runningJobs = cronJobs.filter((job) => Boolean(job.state?.runningAtMs)).length
