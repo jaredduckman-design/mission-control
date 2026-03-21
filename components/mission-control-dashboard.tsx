@@ -69,6 +69,15 @@ function statusBadgeClass(status: string) {
   return 'bg-white/10 text-white border-white/20'
 }
 
+function projectStatusBadgeClass(status: string) {
+  const normalized = status.toUpperCase()
+  if (normalized.includes('BLOCK')) return statusBadgeClass('BLOCKED')
+  if (normalized.includes('COMPLETE') || normalized.includes('DONE')) return statusBadgeClass('HEALTHY')
+  if (normalized.includes('SHIP') || normalized.includes('PROGRESS') || normalized.includes('ACTIVE')) return statusBadgeClass('SHIPPING')
+  if (normalized.includes('MONITOR')) return statusBadgeClass('MONITORING')
+  return statusBadgeClass(status)
+}
+
 function SectionHint({ text }: { text: string }) {
   return (
     <span
@@ -642,7 +651,7 @@ function ProjectsView({ data }: { data: MissionControlData }) {
                 <h3 className="text-xl font-semibold text-white">{project.name}</h3>
                 <p className="mt-2 flex items-center gap-2 text-sm text-slate-400"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: ownerTheme.color }} />Owner · {project.owner}</p>
               </div>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-100">{project.status}</span>
+              <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] ${projectStatusBadgeClass(project.status)}`}>{project.status}</span>
             </div>
             <p className="mt-4 truncate text-sm text-slate-300">{project.detail}</p>
             <p className="mt-4 text-xs uppercase tracking-[0.18em] text-slate-500">Last commit</p>
