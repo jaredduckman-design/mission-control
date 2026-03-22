@@ -293,16 +293,16 @@ function OverviewView({ data }: { data: MissionControlData }) {
               const theme = agentTheme(agent.name)
               return (
                 <article key={agent.name} className="rounded-[28px] border border-white/8 border-l-4 bg-white/[0.03] p-4" style={{ borderLeftColor: theme.color }} title="Each agent card shows ownership, live status, and progress so you know who is doing what.">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: theme.color, boxShadow: `0 0 16px ${theme.color}` }} />
-                        <span className="text-4xl leading-none" aria-hidden>{theme.emoji}</span>
+                        <span className="text-3xl leading-none sm:text-4xl" aria-hidden>{theme.emoji}</span>
                         <p className="text-lg font-semibold text-white">{agent.name}</p>
                       </div>
                       <p className="mt-1 truncate text-sm" style={{ color: agent.name === 'Warren' ? '#fcd34d' : '#94a3b8' }} title={theme.tagline}>{theme.tagline}</p>
                     </div>
-                    <span className={`shrink-0 self-start rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] ${statusBadgeClass(agent.status)}`}>{agent.status}</span>
+                    <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] ${statusBadgeClass(agent.status)}`}>{agent.status}</span>
                   </div>
 
                   <p className="mt-4 truncate text-sm leading-6" style={{ color: agent.name === 'Warren' ? '#fde68a' : '#e2e8f0' }}>{agent.focus}</p>
@@ -420,9 +420,9 @@ function AgentsView({ data }: { data: MissionControlData }) {
           return (
             <article key={agent.name} className="rounded-[32px] border border-white/8 border-l-4 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]" style={{ borderLeftColor: theme.color }} title="Agent identity card: who they are, what they own, and how execution is going.">
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: theme.color, boxShadow: `0 0 16px ${theme.color}` }} />
-                  <span className="text-4xl leading-none" aria-hidden>{theme.emoji}</span>
+                  <span className="text-3xl leading-none sm:text-4xl" aria-hidden>{theme.emoji}</span>
                   <h3 className="text-xl font-semibold text-white">{agent.name}</h3>
                 </div>
                 <p className="mt-2 truncate text-sm" style={{ color: agent.name === 'Warren' ? '#fcd34d' : '#94a3b8' }} title={theme.tagline}>{theme.tagline}</p>
