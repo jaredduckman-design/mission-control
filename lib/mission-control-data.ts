@@ -367,14 +367,22 @@ async function getMemoryItems() {
 }
 
 async function getCronJobs(): Promise<{ jobs: CronJob[]; error?: string }> {
-  try {
-    const { stdout } = await execFileAsync('openclaw', ['cron', 'list', '--json'], { cwd: PROJECT_ROOT, timeout: 15000 })
-    const parsed = JSON.parse(stdout) as { jobs?: CronJob[] }
-    return { jobs: parsed.jobs ?? [] }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'cron list unavailable'
-    return { jobs: [], error: message }
+  const commands = [
+    ['cron', 'list', '--json', '--include-disabled'],
+    ['cron', 'list', '--json'],
+  ] as const
+
+  for (const args of commands) {
+    try {
+      const { stdout } = await execFileAsync('openclaw', [...args], { cwd: PROJECT_ROOT, timeout: 15000 })
+      const parsed = JSON.parse(stdout) as { jobs?: CronJob[] }
+      return { jobs: parsed.jobs ?? [] }
+    } catch {
+      // try next command variant
+    }
   }
+
+  return { jobs: [], error: 'cron list unavailable' }
 }
 
 async function getGatewayStatusSummary(): Promise<{ runtime: string; warnings: string[]; detail: string }> {
@@ -546,9 +554,7 @@ function buildSchedule(jobs: CronJob[]): CalendarDay[] {
     day,
     date: day,
     active: day === TODAY_LABEL,
-    jobs: (bucket.get(day) ?? [])
-      .sort((a, b) => a.time.localeCompare(b.time))
-      .slice(0, 5),
+    jobs: (bucket.get(day) ?? []).sort((a, b) => a.time.localeCompare(b.time)),
   }))
 }
 
