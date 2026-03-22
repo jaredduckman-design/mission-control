@@ -840,7 +840,7 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     { label: 'Runtime', value: 'OpenClaw · Mac mini', detail: `${uptimeHint} · ${gatewayStatus.runtime}` },
     { label: 'Cron jobs discovered', value: String(cronJobs.length), detail: cronJobs.length ? 'Read live via openclaw cron list --json.' : cronResult.error ?? 'Cron CLI unavailable.' },
     { label: 'Workspace memory files', value: String(memoryItems.length || 0), detail: 'Recent markdown notes scanned from /workspace/memory.' },
-    { label: 'Project docs', value: 'CURRENT_TASK + README', detail: 'Task brief and project notes are still wired into the dashboard.' },
+    { label: 'Project docs', value: 'CURRENT_TASK + README + DB', detail: 'Task brief, project notes, and local persistence sources are wired into this dashboard.' },
     { label: 'Memory index', value: memoryIndex.trim() || 'Available', detail: 'Top-level workspace memory marker detected.' },
   ]
 
@@ -883,6 +883,8 @@ export async function getMissionControlData(): Promise<MissionControlData> {
   const candidateDocs: DocumentLink[] = [
     { title: 'CURRENT_TASK.md', note: 'The live brief for the current Mission Control sprint.', href: currentTaskPath },
     { title: 'README.md', note: 'Project notes and local quickstart.', href: path.join(PROJECT_ROOT, 'README.md') },
+    { title: 'mission-control.db', note: 'Primary local Prisma SQLite database backing editable dashboard surfaces.', href: path.join(PROJECT_ROOT, 'mission-control.db') },
+    { title: 'portfolio.json', note: 'Warren source file kept in sync with Mission Control DB writes.', href: '/Users/jaredbot/.openclaw/workspace-warren/portfolio.json' },
     { title: 'memory/', note: 'Recent workspace notes used for the Memory feed.', href: MEMORY_ROOT },
   ]
 
