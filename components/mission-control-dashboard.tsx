@@ -360,37 +360,37 @@ function ScheduleView({ data }: { data: MissionControlData }) {
       <div className="flex justify-end">
         <SectionHint text="Schedule explains when automated work runs so you can plan around it and catch timing conflicts early." />
       </div>
-      <div className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
-      <div className="grid gap-4 xl:grid-cols-5">
+      <div className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.35)] lg:p-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
         {data.schedule.map((day) => (
           <article
             key={day.day}
-            className={`rounded-[28px] border p-4 ${
+            className={`rounded-[24px] border p-3 ${
               day.active
                 ? 'border-cyan-300/30 bg-cyan-300/[0.08] shadow-[0_0_0_1px_rgba(103,232,249,0.08)]'
                 : 'border-white/8 bg-white/[0.03]'
             }`}
           >
-            <div className="flex items-end justify-between border-b border-white/8 pb-3">
+            <div className="flex items-end justify-between border-b border-white/8 pb-2">
               <div>
                 <div className="flex items-center gap-2">
-                  <p className="text-lg font-semibold text-white">{day.day}</p>
+                  <p className="text-base font-semibold text-white">{day.day}</p>
                   {day.active ? <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-100">Today</span> : null}
                 </div>
-                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Scheduled blocks</p>
+                <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Scheduled blocks</p>
               </div>
-              <span className="text-sm font-medium text-slate-400">{day.date}</span>
+              <span className="text-xs font-medium text-slate-400">{day.date}</span>
             </div>
-            <div className="mt-4 space-y-3">
+            <div className="mt-3 space-y-2.5">
               {day.jobs.length ? (
                 day.jobs.map((job) => (
-                  <div key={`${day.day}-${job.time}-${job.title}`} className="rounded-3xl border border-white/8 bg-[#070c17] p-4">
+                  <div key={`${day.day}-${job.time}-${job.title}`} className="rounded-2xl border border-white/8 bg-[#070c17] p-3">
                     <div className="flex items-start justify-between gap-3">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/70">{job.time}</p>
                       {job.status ? <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${statusBadgeClass(job.status)}`}>{job.status}</span> : null}
                     </div>
-                    <p className="mt-2 text-base font-semibold text-white">{job.title}</p>
-                    <p className="mt-2 truncate text-sm text-slate-300">{job.detail}</p>
+                    <p className="mt-1.5 text-sm font-semibold text-white">{job.title}</p>
+                    <p className="mt-1.5 truncate text-xs text-slate-300">{job.detail}</p>
                   </div>
                 ))
               ) : (
