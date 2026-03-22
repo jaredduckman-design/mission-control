@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { useRouter } from 'next/navigation'
 import type { MissionControlData } from '../lib/mission-control-data'
@@ -917,6 +917,7 @@ function DocumentsView({ data }: { data: MissionControlData }) {
 
 function SystemView({ data }: { data: MissionControlData }) {
   const [sortBy, setSortBy] = useState<'status' | 'lastRun' | 'nextRun' | 'consecutiveErrors'>('consecutiveErrors')
+  const [expandedCronId, setExpandedCronId] = useState<string | null>(null)
   const [systemActionState, setSystemActionState] = useState<'idle' | 'running' | 'success' | 'error'>('idle')
   const [systemActionMessage, setSystemActionMessage] = useState('')
   const sortedRows = [...data.system.cronRows].sort((a, b) => {
@@ -983,23 +984,40 @@ function SystemView({ data }: { data: MissionControlData }) {
               </tr>
             </thead>
             <tbody>
-              {sortedRows.map((row) => (
-                <tr key={row.id} className="border-t border-white/10 bg-[#070c17] text-slate-200">
-                  <td className="px-3 py-2">
-                    <p className="font-semibold text-white">{row.name}</p>
-                    <p className="text-xs text-slate-500">{row.promptPreview}</p>
-                  </td>
-                  <td className="px-3 py-2">
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] ${statusBadgeClass(row.status)}`}>{row.status}</span>
-                  </td>
-                  <td className="px-3 py-2">{row.lastRun}</td>
-                  <td className="px-3 py-2">{row.nextRun}</td>
-                  <td className="px-3 py-2">{row.consecutiveErrors}</td>
-                  <td className="px-3 py-2">
-                    <div className="flex items-end gap-1">{row.miniReliability.map((point, index) => <span key={`${row.id}-${index}`} className="w-1.5 rounded-sm bg-cyan-300/80" style={{ height: `${Math.max(8, Math.round(point / 3))}px` }} />)}</div>
-                  </td>
-                </tr>
-              ))}
+              {sortedRows.map((row) => {
+                const isExpanded = expandedCronId === row.id
+                return (
+                  <Fragment key={row.id}>
+                    <tr className="border-t border-white/10 bg-[#070c17] text-slate-200">
+                      <td className="px-3 py-2">
+                        <p className="font-semibold text-white">{row.name}</p>
+                        <p className="truncate text-xs text-slate-500" title={row.lastOutputSummary}>{row.lastOutputSummary}</p>
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] ${statusBadgeClass(row.status)}`}>{row.status}</span>
+                      </td>
+                      <td className="px-3 py-2">{row.lastRun}</td>
+                      <td className="px-3 py-2">{row.nextRun}</td>
+                      <td className="px-3 py-2">{row.consecutiveErrors}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-end gap-1">{row.miniReliability.map((point, index) => <span key={`${row.id}-${index}`} className="w-1.5 rounded-sm bg-cyan-300/80" style={{ height: `${Math.max(8, Math.round(point / 3))}px` }} />)}</div>
+                          <button onClick={() => setExpandedCronId(isExpanded ? null : row.id)} className="rounded-md border border-white/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-300 hover:bg-white/10">{isExpanded ? 'Hide' : 'Explain'}</button>
+                        </div>
+                      </td>
+                    </tr>
+                    {isExpanded ? (
+                      <tr className="border-t border-white/5 bg-[#0a1020] text-slate-300">
+                        <td colSpan={6} className="px-3 py-3">
+                          <p className="text-xs uppercase tracking-[0.16em] text-cyan-200/70">Plain-English job context</p>
+                          <p className="mt-2 text-sm text-slate-200">{row.promptPreview}</p>
+                          <p className="mt-2 text-xs text-slate-400">Latest output: {row.lastOutputSummary}</p>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                )
+              })}
             </tbody>
           </table>
         </div>
