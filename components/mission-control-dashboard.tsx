@@ -597,6 +597,7 @@ function ProjectsView({ data }: { data: MissionControlData }) {
   const [projectName, setProjectName] = useState('')
   const [projectDesc, setProjectDesc] = useState('')
   const [addState, setAddState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [mutateState, setMutateState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
   const submitProject = async () => {
     if (!projectName.trim()) return
@@ -614,6 +615,23 @@ function ProjectsView({ data }: { data: MissionControlData }) {
       router.refresh()
     } catch {
       setAddState('error')
+    }
+  }
+
+  const mutateProject = async (projectId: string, payload: Record<string, unknown>, method: 'PATCH' | 'DELETE' = 'PATCH') => {
+    setMutateState('saving')
+    try {
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method,
+        headers: method === 'PATCH' ? { 'Content-Type': 'application/json' } : undefined,
+        body: method === 'PATCH' ? JSON.stringify(payload) : undefined,
+      })
+      if (!response.ok) throw new Error('update failed')
+      setMutateState('saved')
+      setSelected(null)
+      router.refresh()
+    } catch {
+      setMutateState('error')
     }
   }
 
@@ -665,9 +683,20 @@ function ProjectsView({ data }: { data: MissionControlData }) {
             <div className="mt-5 h-2 rounded-full bg-white/10">
               <div className="h-2 rounded-full" style={{ width: `${project.progress}%`, backgroundColor: ownerTheme.color }} />
             </div>
-            <div className="mt-4 flex items-center justify-between">
+            <div className="mt-4 flex items-center justify-between gap-2">
               <p className="text-sm text-slate-300">{project.progress}% complete</p>
-              <button type="button" onClick={() => setSelected(project)} className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/[0.08]">View details</button>
+              <div className="flex items-center gap-2">
+                {project.id ? (
+                  <button
+                    type="button"
+                    onClick={() => mutateProject(project.id!, { status: project.status.toLowerCase().includes('block') ? 'In Progress' : 'Blocked' })}
+                    className="rounded-lg border border-amber-300/30 bg-amber-300/10 px-3 py-1.5 text-xs font-semibold text-amber-100 hover:bg-amber-300/20"
+                  >
+                    Toggle status
+                  </button>
+                ) : null}
+                <button type="button" onClick={() => setSelected(project)} className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/[0.08]">View details</button>
+              </div>
             </div>
           </article>
           )
@@ -685,6 +714,42 @@ function ProjectsView({ data }: { data: MissionControlData }) {
               <button onClick={() => setSelected(null)} className="rounded-lg border border-white/10 px-3 py-1 text-sm text-slate-300">Close</button>
             </div>
             <p className="mt-4 text-sm leading-7 text-slate-300">{selected.objective}</p>
+            {selected.id ? (
+              <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextName = window.prompt('Project name', selected.name)
+                    if (!nextName) return
+                    const nextDescription = window.prompt('One-line description', selected.detail) ?? selected.detail
+                    const nextOwner = window.prompt('Owner (Karl/Hex/Warren)', selected.owner) ?? selected.owner
+                    const nextStatus = window.prompt('Status', selected.status) ?? selected.status
+                    const nextProgress = Number(window.prompt('Progress %', String(selected.progress)) || String(selected.progress))
+                    void mutateProject(selected.id!, {
+                      name: nextName,
+                      description: nextDescription,
+                      owner: nextOwner,
+                      status: nextStatus,
+                      progress: nextProgress,
+                    })
+                  }}
+                  className="rounded border border-cyan-300/30 bg-cyan-300/10 px-2.5 py-1 text-cyan-100"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!window.confirm(`Delete ${selected.name}?`)) return
+                    void mutateProject(selected.id!, {}, 'DELETE')
+                  }}
+                  className="rounded border border-red-400/30 bg-red-400/10 px-2.5 py-1 text-red-100"
+                >
+                  Delete
+                </button>
+                <span className="text-slate-400">{mutateState === 'saved' ? 'Saved to local database' : mutateState === 'error' ? 'Update failed' : mutateState === 'saving' ? 'Saving…' : 'Editable project intake record'}</span>
+              </div>
+            ) : null}
             <div className="mt-5 grid gap-4 md:grid-cols-3">
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-emerald-300">Completed</p>

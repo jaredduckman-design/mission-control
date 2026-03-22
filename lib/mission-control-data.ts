@@ -73,6 +73,7 @@ type ActivityItem = {
 }
 
 type ProjectCard = {
+  id?: string
   name: string
   status: string
   owner: string
@@ -748,6 +749,7 @@ export async function getMissionControlData(): Promise<MissionControlData> {
   ]
 
   const intakeCards: ProjectCard[] = projectItems.map((item) => ({
+    id: item.id,
     name: item.name,
     status: item.status,
     owner: item.owner,
