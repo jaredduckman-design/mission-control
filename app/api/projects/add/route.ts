@@ -1,33 +1,24 @@
+import { NextResponse } from 'next/server'
 import { prisma } from '../../../../lib/prisma'
 
-type Body = {
-  name?: string
-  description?: string
-}
-
-function sanitize(input: string) {
-  return input.replace(/[\r\n]+/g, ' ').trim()
-}
-
 export async function POST(request: Request) {
-  try {
-    const body = (await request.json()) as Body
-    const name = sanitize(body.name ?? '')
-    const description = sanitize(body.description ?? '')
+  const body = (await request.json().catch(() => null)) as
+    | { name?: string; description?: string; owner?: string; status?: string; progress?: number }
+    | null
 
-    if (!name) {
-      return Response.json({ ok: false, error: 'Project name is required.' }, { status: 400 })
-    }
-
-    await prisma.projectItem.create({
-      data: {
-        name,
-        description: description || null,
-      },
-    })
-
-    return Response.json({ ok: true })
-  } catch (error) {
-    return Response.json({ ok: false, error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 })
+  if (!body?.name?.trim()) {
+    return NextResponse.json({ error: 'name is required' }, { status: 400 })
   }
+
+  const project = await prisma.projectItem.create({
+    data: {
+      name: body.name.trim(),
+      description: body.description?.trim() || null,
+      owner: body.owner?.trim() || 'Hex',
+      status: body.status?.trim() || 'Queued',
+      progress: Number.isFinite(Number(body.progress)) ? Math.max(0, Math.min(100, Number(body.progress))) : 5,
+    },
+  })
+
+  return NextResponse.json({ ok: true, project })
 }

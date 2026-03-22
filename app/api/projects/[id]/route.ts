@@ -1,53 +1,44 @@
+import { NextResponse } from 'next/server'
 import { prisma } from '../../../../lib/prisma'
 
-type Body = {
-  name?: string
-  description?: string
-  status?: string
-  owner?: string
-  progress?: number
+type Params = { params: Promise<{ id: string }> }
+
+export async function PATCH(request: Request, { params }: Params) {
+  const { id } = await params
+  const body = (await request.json().catch(() => null)) as
+    | { name?: string; description?: string; owner?: string; status?: string; progress?: number }
+    | null
+
+  if (!body) return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
+
+  const existing = await prisma.projectItem.findUnique({ where: { id } })
+  if (!existing) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+
+  const project = await prisma.projectItem.update({
+    where: { id },
+    data: {
+      name: body.name?.trim(),
+      description: body.description === undefined ? undefined : body.description.trim() || null,
+      owner: body.owner?.trim(),
+      status: body.status?.trim(),
+      progress:
+        body.progress === undefined
+          ? undefined
+          : Number.isFinite(Number(body.progress))
+            ? Math.max(0, Math.min(100, Number(body.progress)))
+            : existing.progress,
+    },
+  })
+
+  return NextResponse.json({ ok: true, project })
 }
 
-function sanitize(input: string) {
-  return input.replace(/[\r\n]+/g, ' ').trim()
-}
+export async function DELETE(_request: Request, { params }: Params) {
+  const { id } = await params
 
-function normalizeProgress(value: unknown) {
-  const parsed = Number(value)
-  if (!Number.isFinite(parsed)) return undefined
-  return Math.max(0, Math.min(100, Math.round(parsed)))
-}
+  const existing = await prisma.projectItem.findUnique({ where: { id } })
+  if (!existing) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const body = (await request.json()) as Body
-    const { id } = await params
-
-    const data = {
-      name: typeof body.name === 'string' ? sanitize(body.name) : undefined,
-      description: typeof body.description === 'string' ? sanitize(body.description) || null : undefined,
-      status: typeof body.status === 'string' ? sanitize(body.status) : undefined,
-      owner: typeof body.owner === 'string' ? sanitize(body.owner) : undefined,
-      progress: normalizeProgress(body.progress),
-    }
-
-    await prisma.projectItem.update({
-      where: { id },
-      data,
-    })
-
-    return Response.json({ ok: true })
-  } catch (error) {
-    return Response.json({ ok: false, error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 })
-  }
-}
-
-export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const { id } = await params
-    await prisma.projectItem.delete({ where: { id } })
-    return Response.json({ ok: true })
-  } catch (error) {
-    return Response.json({ ok: false, error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 })
-  }
+  await prisma.projectItem.delete({ where: { id } })
+  return NextResponse.json({ ok: true })
 }
