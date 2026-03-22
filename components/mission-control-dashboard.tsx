@@ -1050,9 +1050,11 @@ function SettingsView({ data, onReplayTour }: { data: MissionControlData; onRepl
     Object.fromEntries(data.settings.modelOverrides.map((override) => [override.agent, override.model])),
   )
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [savedLabel, setSavedLabel] = useState('')
 
   const saveSettings = async () => {
     setSaveState('saving')
+    setSavedLabel('Saving settings…')
     try {
       const response = await fetch('/api/settings', {
         method: 'PATCH',
@@ -1060,9 +1062,12 @@ function SettingsView({ data, onReplayTour }: { data: MissionControlData; onRepl
         body: JSON.stringify({ selectedFrequency, morningBriefTime, marketBriefTime, modelOverrides }),
       })
       if (!response.ok) throw new Error('save failed')
+      const stamp = new Intl.DateTimeFormat('en-CA', { hour: 'numeric', minute: '2-digit' }).format(new Date())
       setSaveState('saved')
+      setSavedLabel(`Saved at ${stamp}`)
     } catch {
       setSaveState('error')
+      setSavedLabel('Save failed. Check DB/API connectivity and try again.')
     }
   }
 
@@ -1114,8 +1119,27 @@ function SettingsView({ data, onReplayTour }: { data: MissionControlData; onRepl
           ))}
         </div>
         <div className="mt-5 flex flex-wrap items-center gap-3">
-          <button type="button" onClick={saveSettings} className="rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-2 text-sm font-semibold text-emerald-100 hover:bg-emerald-300/20">Save settings</button>
-          <span className="text-xs text-slate-400">{saveState === 'saved' ? 'Saved to local database' : saveState === 'error' ? 'Save failed' : saveState === 'saving' ? 'Saving…' : 'Changes persist in Prisma + SQLite'}</span>
+          <button
+            type="button"
+            onClick={saveSettings}
+            disabled={saveState === 'saving'}
+            className="rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-2 text-sm font-semibold text-emerald-100 hover:bg-emerald-300/20 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {saveState === 'saving' ? 'Saving…' : 'Save settings'}
+          </button>
+          <span
+            className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+              saveState === 'saved'
+                ? 'border-emerald-300/40 bg-emerald-300/15 text-emerald-100'
+                : saveState === 'error'
+                  ? 'border-red-300/40 bg-red-300/15 text-red-100'
+                  : saveState === 'saving'
+                    ? 'border-cyan-300/40 bg-cyan-300/15 text-cyan-100'
+                    : 'border-white/15 bg-white/[0.04] text-slate-300'
+            }`}
+          >
+            {savedLabel || 'Changes persist in Prisma + SQLite'}
+          </span>
         </div>
         <button
           type="button"
