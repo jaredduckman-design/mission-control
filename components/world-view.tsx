@@ -43,6 +43,30 @@ function makePixelRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: n
   }
 }
 
+function wrapBubbleText(text: string, maxChars = 34, maxLines = 2) {
+  const words = text.split(/\s+/)
+  const lines: string[] = []
+  let current = ''
+
+  words.forEach((word) => {
+    const candidate = current ? `${current} ${word}` : word
+    if (candidate.length <= maxChars) {
+      current = candidate
+      return
+    }
+
+    if (current) lines.push(current)
+    current = word
+  })
+
+  if (current) lines.push(current)
+
+  if (lines.length <= maxLines) return lines
+  const limited = lines.slice(0, maxLines)
+  limited[maxLines - 1] = `${limited[maxLines - 1].slice(0, Math.max(0, maxChars - 1)).trimEnd()}…`
+  return limited
+}
+
 export function WorldView({ world }: WorldViewProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [musicOn, setMusicOn] = useState(false)
@@ -172,16 +196,21 @@ export function WorldView({ world }: WorldViewProps) {
         const y = walker.from.y + (walker.to.y - walker.from.y) * walker.progress
 
         const bubbleText = `${walker.name} (${walker.status}): ${walker.task}`
-        const bubbleWidth = clamp(Math.max(150, bubbleText.length * 5.7), 150, 290)
+        const bubbleLines = wrapBubbleText(bubbleText, 34, 2)
+        const bubbleWidth = clamp(Math.max(170, Math.max(...bubbleLines.map((line) => line.length)) * 6.5), 170, 300)
+        const bubbleHeight = bubbleLines.length > 1 ? 38 : 26
+        const bubbleY = y - (bubbleLines.length > 1 ? 70 : 58)
         const bubbleX = clamp(x - bubbleWidth / 2, 8, WORLD_WIDTH - bubbleWidth - 8)
 
-        makePixelRect(ctx, bubbleX, y - 58, bubbleWidth, 26, 'rgba(15,23,42,0.95)', 2)
-        makePixelRect(ctx, bubbleX, y - 58, bubbleWidth, 2, '#f8fafc', 2)
-        makePixelRect(ctx, clamp(x - 2, 8, WORLD_WIDTH - 10), y - 32, 8, 8, 'rgba(15,23,42,0.95)', 2)
+        makePixelRect(ctx, bubbleX, bubbleY, bubbleWidth, bubbleHeight, 'rgba(15,23,42,0.95)', 2)
+        makePixelRect(ctx, bubbleX, bubbleY, bubbleWidth, 2, '#f8fafc', 2)
+        makePixelRect(ctx, clamp(x - 2, 8, WORLD_WIDTH - 10), bubbleY + bubbleHeight - 6, 8, 8, 'rgba(15,23,42,0.95)', 2)
 
         ctx.fillStyle = '#e2e8f0'
         ctx.font = '11px monospace'
-        ctx.fillText(bubbleText.slice(0, 44), bubbleX + 6, y - 40)
+        bubbleLines.forEach((line, lineIndex) => {
+          ctx.fillText(line, bubbleX + 6, bubbleY + 18 + lineIndex * 12)
+        })
 
         makePixelRect(ctx, x - 9, y - 10, 18, 18, COLOR_MAP[walker.name] ?? '#94a3b8')
         ctx.fillStyle = '#020617'
