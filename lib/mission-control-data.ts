@@ -1079,15 +1079,21 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     }
   }
 
-  const gitTickerEvents = gitTickerEventsRaw
-    .sort((a, b) => b.committedAtMs - a.committedAtMs)
-    .map((entry) => entry.event)
-
-  const cronTickerEvents = cronJobs
-    .filter((job) => typeof job.state?.lastRunAtMs === 'number')
-    .sort((a, b) => (b.state?.lastRunAtMs ?? 0) - (a.state?.lastRunAtMs ?? 0))
+  const tickerEvents = [
+    ...gitTickerEventsRaw.map((entry) => ({
+      atMs: entry.committedAtMs,
+      event: entry.event,
+    })),
+    ...cronJobs
+      .filter((job) => typeof job.state?.lastRunAtMs === 'number')
+      .map((job) => ({
+        atMs: job.state?.lastRunAtMs ?? 0,
+        event: `${humanizeName(job.name)} ${summarizeCronStatus(job).toLowerCase()} · ${formatRelative(job.state?.lastRunAtMs)}`,
+      })),
+  ]
+    .sort((a, b) => b.atMs - a.atMs)
     .slice(0, 5)
-    .map((job) => `${humanizeName(job.name)} ${summarizeCronStatus(job).toLowerCase()} · ${formatRelative(job.state?.lastRunAtMs)}`)
+    .map((entry) => entry.event)
 
   const worldAgents: WorldAgent[] = [
     {
@@ -1146,7 +1152,7 @@ export async function getMissionControlData(): Promise<MissionControlData> {
       state: blockedNow > 0 || activeNow < worldAgents.length ? 'Issues ⚠️' : 'All clear ✅',
       tone: blockedNow > 0 ? 'red' : activeNow < worldAgents.length ? 'amber' : 'green',
     },
-    ticker: [...gitTickerEvents, ...cronTickerEvents].slice(0, 5),
+    ticker: tickerEvents,
   }
 
   return {
