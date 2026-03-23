@@ -69,7 +69,10 @@ function wrapBubbleText(text: string, maxChars = 34, maxLines = 2) {
 
 export function WorldView({ world }: WorldViewProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const audioRef = useRef<AudioContext | null>(null)
+  const loopRef = useRef<number | null>(null)
   const [musicOn, setMusicOn] = useState(false)
+  const [torontoHour, setTorontoHour] = useState(world.localHourToronto)
 
   const walkersRef = useRef<Walker[]>([])
 
@@ -114,6 +117,82 @@ export function WorldView({ world }: WorldViewProps) {
   }, [landmarks, world.agents])
 
   useEffect(() => {
+    const getTorontoHour = () => {
+      const formatter = new Intl.DateTimeFormat('en-CA', {
+        hour: '2-digit',
+        hour12: false,
+        timeZone: 'America/Toronto',
+      })
+      const hourValue = Number.parseInt(formatter.format(new Date()), 10)
+      return Number.isNaN(hourValue) ? world.localHourToronto : hourValue
+    }
+
+    setTorontoHour(getTorontoHour())
+    const timer = window.setInterval(() => {
+      setTorontoHour(getTorontoHour())
+    }, 60_000)
+
+    return () => window.clearInterval(timer)
+  }, [world.localHourToronto])
+
+  useEffect(() => {
+    if (!musicOn) {
+      if (loopRef.current) {
+        window.clearInterval(loopRef.current)
+        loopRef.current = null
+      }
+      if (audioRef.current) {
+        audioRef.current.close().catch(() => undefined)
+        audioRef.current = null
+      }
+      return
+    }
+
+    const AudioCtx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!AudioCtx) return
+
+    const audio = new AudioCtx()
+    audioRef.current = audio
+
+    const notes = [523.25, 659.25, 783.99, 659.25, 523.25, 392.0, 523.25, 659.25]
+    let step = 0
+
+    const playStep = () => {
+      const osc = audio.createOscillator()
+      const gain = audio.createGain()
+      osc.type = 'square'
+      osc.frequency.value = notes[step % notes.length]
+
+      gain.gain.setValueAtTime(0.0001, audio.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.04, audio.currentTime + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.23)
+
+      osc.connect(gain)
+      gain.connect(audio.destination)
+      osc.start()
+      osc.stop(audio.currentTime + 0.24)
+
+      step += 1
+    }
+
+    if (audio.state === 'suspended') {
+      audio.resume().catch(() => undefined)
+    }
+
+    playStep()
+    loopRef.current = window.setInterval(playStep, 260)
+
+    return () => {
+      if (loopRef.current) {
+        window.clearInterval(loopRef.current)
+        loopRef.current = null
+      }
+      audio.close().catch(() => undefined)
+      if (audioRef.current === audio) audioRef.current = null
+    }
+  }, [musicOn])
+
+  useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
@@ -133,7 +212,7 @@ export function WorldView({ world }: WorldViewProps) {
       canvas.height = Math.floor(height * dpr)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
-      const isNight = world.isNight
+      const isNight = torontoHour >= 19 || torontoHour < 7
       const sky = isNight ? '#0a1024' : '#7ec8ff'
       const ground = isNight ? '#102335' : '#2c7b4d'
 
@@ -228,7 +307,7 @@ export function WorldView({ world }: WorldViewProps) {
 
     raf = window.requestAnimationFrame(draw)
     return () => window.cancelAnimationFrame(raf)
-  }, [world.isNight])
+  }, [torontoHour])
 
   return (
     <section className="space-y-4" title="World view gives a live pixel-town snapshot of each agent moving between landmarks.">
@@ -237,7 +316,7 @@ export function WorldView({ world }: WorldViewProps) {
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Page 06 · World</p>
             <h3 className="mt-2 text-2xl font-semibold text-white">Pixel Agent Town</h3>
-            <p className="mt-2 text-sm text-slate-300">Toronto local time: {String(world.localHourToronto).padStart(2, '0')}:00 · {world.isNight ? 'Night cycle' : 'Day cycle'}</p>
+            <p className="mt-2 text-sm text-slate-300">Toronto local time: {String(torontoHour).padStart(2, '0')}:00 · {torontoHour >= 19 || torontoHour < 7 ? 'Night cycle' : 'Day cycle'}</p>
           </div>
           <button
             type="button"
