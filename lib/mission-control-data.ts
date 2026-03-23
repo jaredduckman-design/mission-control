@@ -207,7 +207,7 @@ type WorldData = {
     totalAgents: number
     activeNow: number
     blocked: number
-    state: 'All clear ✅' | 'Watch ⚠️' | 'Issues ⚠️'
+    state: 'All clear ✅' | 'Issues ⚠️'
     tone: 'green' | 'amber' | 'red'
   }
   ticker: string[]
@@ -1141,7 +1141,7 @@ export async function getMissionControlData(): Promise<MissionControlData> {
       totalAgents: worldAgents.length,
       activeNow,
       blocked: blockedNow,
-      state: blockedNow > 0 ? 'Issues ⚠️' : activeNow < worldAgents.length ? 'Watch ⚠️' : 'All clear ✅',
+      state: blockedNow > 0 || activeNow < worldAgents.length ? 'Issues ⚠️' : 'All clear ✅',
       tone: blockedNow > 0 ? 'red' : activeNow < worldAgents.length ? 'amber' : 'green',
     },
     ticker: [...gitTickerEvents, ...cronTickerEvents].slice(0, 5),
