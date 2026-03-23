@@ -28,7 +28,7 @@ const NAV_TOOLTIPS: Record<(typeof navItems)[number], string> = {
   Memory: 'Surfaces prior notes and logs so decisions have context and continuity.',
   Documents: 'Lists core project docs and opens them directly so context is one click away.',
   System: 'Shows runtime reliability, cron health, and operational warnings.',
-  Settings: 'Controls update cadence, model routing, and onboarding help.',
+  Settings: 'Controls update cadence, model routing, and notification delivery.',
 }
 
 type View = (typeof navItems)[number]
@@ -95,7 +95,6 @@ function SectionHint({ text }: { text: string }) {
 export function MissionControlDashboard({ data }: { data: MissionControlData }) {
   const router = useRouter()
   const [activeView, setActiveView] = useState<View>('Overview')
-  const [showTour, setShowTour] = useState(true)
   const [lastLiveSyncAt, setLastLiveSyncAt] = useState<Date>(new Date())
 
   useEffect(() => {
@@ -160,7 +159,7 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
         return {
           eyebrow: 'Settings',
           title: 'Control cadence, model overrides, and notification routing.',
-          description: 'This page keeps the automation understandable for newcomers with plain-language controls and an onboarding replay.',
+          description: 'This page keeps cadence, model routing, and notifications clear in plain language.',
         }
       default:
         return {
@@ -281,10 +280,9 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
           {activeView === 'Memory' && <MemoryView data={data} />}
           {activeView === 'Documents' && <DocumentsView data={data} />}
           {activeView === 'System' && <SystemView data={data} />}
-          {activeView === 'Settings' && <SettingsView data={data} onReplayTour={() => setShowTour(true)} />}
+          {activeView === 'Settings' && <SettingsView data={data} />}
         </section>
       </div>
-      {showTour ? <OnboardingTour onClose={() => setShowTour(false)} /> : null}
     </main>
   )
 }
@@ -1000,7 +998,7 @@ function DocumentsView({ data }: { data: MissionControlData }) {
   return (
     <section className="space-y-4" title="Documents keeps key files easy to open so context is never buried.">
       <div className="flex justify-end">
-        <SectionHint text="Documents gives one-click access to core files so onboarding and handoffs are faster." />
+        <SectionHint text="Documents gives one-click access to core files so handoffs are faster." />
       </div>
       <div className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
         <div className="mb-4">
@@ -1171,7 +1169,7 @@ function SystemView({ data }: { data: MissionControlData }) {
   )
 }
 
-function SettingsView({ data, onReplayTour }: { data: MissionControlData; onReplayTour: () => void }) {
+function SettingsView({ data }: { data: MissionControlData }) {
   const [selectedFrequency, setSelectedFrequency] = useState(data.settings.selectedFrequency)
   const [morningBriefTime, setMorningBriefTime] = useState(data.settings.morningBriefTime)
   const [marketBriefTime, setMarketBriefTime] = useState(data.settings.marketBriefTime)
@@ -1203,7 +1201,7 @@ function SettingsView({ data, onReplayTour }: { data: MissionControlData; onRepl
   return (
     <section className="space-y-4" title="Settings controls cadence, models, and routing so automation stays understandable.">
       <div className="flex justify-end">
-        <SectionHint text="Settings lets you tune cadence and routing so automation stays predictable for first-time users." />
+        <SectionHint text="Settings lets you tune cadence and routing so automation stays predictable and easy to operate." />
       </div>
       <div className="grid gap-5 xl:grid-cols-2">
       <article className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
@@ -1229,7 +1227,7 @@ function SettingsView({ data, onReplayTour }: { data: MissionControlData; onRepl
       </article>
 
       <article className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Routing + onboarding</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Routing + delivery</p>
         <h3 className="mt-2 text-2xl font-semibold text-white">Models and notifications</h3>
         <div className="mt-4 space-y-3 text-sm text-slate-300">
           {data.settings.modelOverrides.map((override) => (
@@ -1270,54 +1268,8 @@ function SettingsView({ data, onReplayTour }: { data: MissionControlData; onRepl
             {savedLabel || 'Changes persist in Prisma + SQLite'}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={onReplayTour}
-          className="mt-4 rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-300/20"
-        >
-          Replay onboarding tour
-        </button>
       </article>
       </div>
     </section>
-  )
-}
-
-function OnboardingTour({ onClose }: { onClose: () => void }) {
-  const steps = [
-    'Overview shows system health and a quick read of what matters now.',
-    'Schedule visualizes cron cadence so you can see what runs and when.',
-    'Agents explains who does what: Karl coordinates, Hex builds, Warren handles markets/ops.',
-    'Portfolio is live and editable: holdings, buys/sells, and source sync all persist.',
-    'Projects tracks delivery status and current blockers.',
-    'Memory captures overnight logs and continuity context.',
-    'Documents centralizes task briefs and source files so onboarding is faster.',
-    'System exposes runtime health, source confidence, and local references.',
-    'Settings controls update frequency, routing, and lets you replay this tour anytime.',
-  ]
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-2xl rounded-[28px] border border-white/10 bg-[#0b1222] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.6)]">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">First-time tour</p>
-        <h3 className="mt-2 text-2xl font-semibold text-white">Welcome to Mission Control</h3>
-        <p className="mt-3 text-sm leading-7 text-slate-300">OpenClaw runs background agents automatically. This dashboard makes the work visible in plain English.</p>
-        <ol className="mt-5 space-y-2">
-          {steps.map((step, index) => (
-            <li key={step} className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm leading-6 text-slate-200">
-              <span className="mr-2 text-cyan-200">{index + 1}.</span>
-              {step}
-            </li>
-          ))}
-        </ol>
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-5 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100"
-        >
-          Got it
-        </button>
-      </div>
-    </div>
   )
 }
