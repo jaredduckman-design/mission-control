@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { useRouter } from 'next/navigation'
 import type { MissionControlData } from '../lib/mission-control-data'
@@ -91,8 +91,24 @@ function SectionHint({ text }: { text: string }) {
 }
 
 export function MissionControlDashboard({ data }: { data: MissionControlData }) {
+  const router = useRouter()
   const [activeView, setActiveView] = useState<View>('Overview')
   const [showTour, setShowTour] = useState(true)
+  const [lastLiveSyncAt, setLastLiveSyncAt] = useState<Date>(new Date())
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      router.refresh()
+      setLastLiveSyncAt(new Date())
+    }, 30000)
+
+    return () => window.clearInterval(interval)
+  }, [router])
+
+  const liveSyncLabel = useMemo(
+    () => lastLiveSyncAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' }),
+    [lastLiveSyncAt],
+  )
 
   const heading = useMemo(() => {
     switch (activeView) {
@@ -256,7 +272,7 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
           </header>
 
           {activeView === 'Overview' && <OverviewView data={data} />}
-          {activeView === 'Schedule' && <ScheduleView data={data} />}
+          {activeView === 'Schedule' && <ScheduleView data={data} liveSyncLabel={liveSyncLabel} />}
           {activeView === 'Agents' && <AgentsView data={data} />}
           {activeView === 'Portfolio' && <PortfolioView data={data} />}
           {activeView === 'Projects' && <ProjectsView data={data} />}
@@ -354,13 +370,17 @@ function OverviewView({ data }: { data: MissionControlData }) {
   )
 }
 
-function ScheduleView({ data }: { data: MissionControlData }) {
+function ScheduleView({ data, liveSyncLabel }: { data: MissionControlData; liveSyncLabel: string }) {
   return (
     <section className="space-y-4" title="Schedule shows what jobs run each day so timing and workload are predictable.">
       <div className="flex justify-end">
         <SectionHint text="Schedule explains when automated work runs so you can plan around it and catch timing conflicts early." />
       </div>
       <div className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.35)] lg:p-5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-xs text-emerald-100">
+        <span className="font-semibold uppercase tracking-[0.16em]">Live cron sync every 30s</span>
+        <span>Last sync {liveSyncLabel}</span>
+      </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
         {data.schedule.map((day) => (
           <article
