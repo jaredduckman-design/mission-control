@@ -457,9 +457,10 @@ export function WorldView({ world }: WorldViewProps) {
             <button
               type="button"
               onClick={() => setDemoMode((prev) => !prev)}
+              aria-label="Toggle Demo Mode"
               className={`rounded-xl border px-3 py-2 text-xs font-semibold ${demoMode ? 'border-amber-300/40 bg-amber-300/20 text-amber-100' : 'border-white/10 bg-white/[0.04] text-slate-200'}`}
             >
-              Demo mode {demoMode ? 'ON' : 'OFF'}
+              Demo Mode {demoMode ? 'ON' : 'OFF'}
             </button>
             <button
               type="button"
