@@ -151,6 +151,11 @@ type SystemErrorRow = {
   suggestedFix: string
 }
 
+type ReliabilityPoint = {
+  day: string
+  score: number
+}
+
 type ResourceUsage = {
   label: string
   value: string
@@ -246,6 +251,7 @@ export type MissionControlData = {
   system: {
     metrics: SystemMetric[]
     cronRows: SystemCronRow[]
+    reliabilityWeek: ReliabilityPoint[]
     errorLog: SystemErrorRow[]
     resourceUsage: ResourceUsage[]
     securityWarnings: string[]
@@ -642,6 +648,16 @@ function buildSystemCronRows(jobs: CronJob[]): SystemCronRow[] {
   }))
 }
 
+function buildReliabilityWeek(rows: SystemCronRow[]): ReliabilityPoint[] {
+  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  if (!rows.length) return dayLabels.map((day) => ({ day, score: 0 }))
+
+  return dayLabels.map((day, index) => {
+    const score = rows.reduce((sum, row) => sum + (row.miniReliability[index] ?? 0), 0) / rows.length
+    return { day, score: Math.round(score) }
+  })
+}
+
 function buildErrorLog(jobs: CronJob[]): SystemErrorRow[] {
   return jobs
     .filter((job) => (job.state?.consecutiveErrors ?? 0) > 0 || Boolean(job.state?.lastError) || Boolean(job.state?.lastErrorReason))
@@ -908,6 +924,7 @@ export async function getMissionControlData(): Promise<MissionControlData> {
   ]
 
   const systemCronRows = buildSystemCronRows(cronJobs)
+  const reliabilityWeek = buildReliabilityWeek(systemCronRows)
   const systemErrorLog = buildErrorLog(cronJobs)
   const resourceUsage: ResourceUsage[] = [
     { label: 'Codex quota used today', value: cronJobs.length ? '41%' : 'Unknown', percent: cronJobs.length ? 41 : 0, detail: 'Estimate from active local run volume.' },
@@ -1042,6 +1059,7 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     system: {
       metrics: systemMetrics,
       cronRows: systemCronRows,
+      reliabilityWeek,
       errorLog: systemErrorLog,
       resourceUsage,
       securityWarnings,

@@ -1078,6 +1078,27 @@ function SystemView({ data }: { data: MissionControlData }) {
         ))}
       </div>
 
+      <article className="rounded-[28px] border border-white/8 bg-[#091120]/90 p-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/70">7-day reliability</p>
+            <h3 className="mt-1 text-xl font-semibold text-white">Scheduler confidence trend</h3>
+          </div>
+          <p className="text-xs text-slate-400">Derived from the latest 7-run reliability signal across all jobs.</p>
+        </div>
+        <div className="mt-4 grid grid-cols-7 gap-2">
+          {data.system.reliabilityWeek.map((point) => (
+            <div key={point.day} className="rounded-xl border border-white/10 bg-[#070c17] p-2 text-center">
+              <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">{point.day}</p>
+              <div className="mx-auto mt-2 flex h-20 w-full max-w-8 items-end justify-center rounded bg-white/[0.03] p-1">
+                <span className="w-full rounded-sm bg-cyan-300/80" style={{ height: `${Math.max(8, Math.round(point.score * 0.72))}px` }} />
+              </div>
+              <p className="mt-2 text-xs font-semibold text-cyan-100">{point.score}%</p>
+            </div>
+          ))}
+        </div>
+      </article>
+
       <article className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-2xl font-semibold text-white">Cron reliability</h3>
