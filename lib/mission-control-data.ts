@@ -1140,6 +1140,7 @@ export async function getMissionControlData(): Promise<MissionControlData> {
 
   const activeNow = worldAgents.filter((agent) => agent.statusDot === 'green').length
   const blockedNow = worldAgents.filter((agent) => agent.statusDot === 'red').length
+  const worldTone = blockedNow > 0 ? 'red' : activeNow === 0 ? 'amber' : 'green'
 
   const world: WorldData = {
     localHourToronto: torontoHour,
@@ -1149,8 +1150,8 @@ export async function getMissionControlData(): Promise<MissionControlData> {
       totalAgents: worldAgents.length,
       activeNow,
       blocked: blockedNow,
-      state: blockedNow > 0 || activeNow < worldAgents.length ? 'Issues ⚠️' : 'All clear ✅',
-      tone: blockedNow > 0 ? 'red' : activeNow < worldAgents.length ? 'amber' : 'green',
+      state: worldTone === 'green' ? 'All clear ✅' : 'Issues ⚠️',
+      tone: worldTone,
     },
     ticker: tickerEvents,
   }
