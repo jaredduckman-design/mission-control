@@ -72,6 +72,7 @@ export function WorldView({ world }: WorldViewProps) {
   const audioRef = useRef<AudioContext | null>(null)
   const loopRef = useRef<number | null>(null)
   const [musicOn, setMusicOn] = useState(false)
+  const [demoMode, setDemoMode] = useState(false)
   const [torontoHour, setTorontoHour] = useState(world.localHourToronto)
 
   const walkersRef = useRef<Walker[]>([])
@@ -102,8 +103,22 @@ export function WorldView({ world }: WorldViewProps) {
     [],
   )
 
+  const worldData = useMemo(() => {
+    if (!demoMode) return world
+
+    return {
+      ...world,
+      agents: world.agents.map((agent) => ({
+        ...agent,
+        status: 'Working',
+        currentTask: `Demo mode: ${agent.name} running showcase workflow`,
+        pace: 'fast' as const,
+      })),
+    }
+  }, [demoMode, world])
+
   useEffect(() => {
-    walkersRef.current = world.agents.map((agent, idx) => ({
+    walkersRef.current = worldData.agents.map((agent, idx) => ({
       name: agent.name,
       emoji: agent.emoji,
       status: agent.status,
@@ -114,7 +129,7 @@ export function WorldView({ world }: WorldViewProps) {
       progress: (idx * 0.17) % 1,
       direction: idx % 2 === 0 ? 1 : -1,
     }))
-  }, [landmarks, world.agents])
+  }, [landmarks, worldData.agents])
 
   useEffect(() => {
     const getTorontoHour = () => {
@@ -317,14 +332,24 @@ export function WorldView({ world }: WorldViewProps) {
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Page 06 · World</p>
             <h3 className="mt-2 text-2xl font-semibold text-white">Pixel Agent Town</h3>
             <p className="mt-2 text-sm text-slate-300">Toronto local time: {String(torontoHour).padStart(2, '0')}:00 · {torontoHour >= 19 || torontoHour < 7 ? 'Night cycle' : 'Day cycle'}</p>
+            {demoMode ? <p className="mt-1 text-xs font-medium text-amber-200">Demo mode is active · all agents are shown as working with synthetic task labels.</p> : null}
           </div>
-          <button
-            type="button"
-            onClick={() => setMusicOn((prev) => !prev)}
-            className={`rounded-xl border px-3 py-2 text-xs font-semibold ${musicOn ? 'border-emerald-300/40 bg-emerald-300/20 text-emerald-100' : 'border-white/10 bg-white/[0.04] text-slate-200'}`}
-          >
-            8-bit music {musicOn ? 'ON' : 'OFF'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setDemoMode((prev) => !prev)}
+              className={`rounded-xl border px-3 py-2 text-xs font-semibold ${demoMode ? 'border-amber-300/40 bg-amber-300/20 text-amber-100' : 'border-white/10 bg-white/[0.04] text-slate-200'}`}
+            >
+              Demo mode {demoMode ? 'ON' : 'OFF'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMusicOn((prev) => !prev)}
+              className={`rounded-xl border px-3 py-2 text-xs font-semibold ${musicOn ? 'border-emerald-300/40 bg-emerald-300/20 text-emerald-100' : 'border-white/10 bg-white/[0.04] text-slate-200'}`}
+            >
+              8-bit music {musicOn ? 'ON' : 'OFF'}
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-[#060b16]">
