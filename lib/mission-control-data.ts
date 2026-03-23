@@ -807,7 +807,7 @@ export async function getMissionControlData(): Promise<MissionControlData> {
       techStack: ['OpenClaw', 'Cron', 'TypeScript'],
       objective: 'Provide a single source of truth for agent routing, cadence, and reliability.',
       completedMilestones: ['Cron parsing + status summary', 'Source document mapping'],
-      remainingWork: ['7-day reliability sparkline', 'Error backoff control action'],
+      remainingWork: ['Automation controls QA pass'],
       blockers: cronJobs.length ? [] : ['Cron data source not reachable'],
       assets: [],
     },
