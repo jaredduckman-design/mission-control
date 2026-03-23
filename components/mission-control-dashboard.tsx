@@ -634,6 +634,8 @@ function ProjectsView({ data }: { data: MissionControlData }) {
   const [selected, setSelected] = useState<MissionControlData['projects'][number] | null>(null)
   const [projectName, setProjectName] = useState('')
   const [projectDesc, setProjectDesc] = useState('')
+  const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Blocked' | 'Complete'>('All')
   const [addState, setAddState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [mutateState, setMutateState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
@@ -673,6 +675,39 @@ function ProjectsView({ data }: { data: MissionControlData }) {
     }
   }
 
+  const projectCounts = useMemo(() => {
+    const counts = { active: 0, blocked: 0, complete: 0 }
+    for (const project of data.projects) {
+      const normalized = project.status.toLowerCase()
+      if (normalized.includes('block')) counts.blocked += 1
+      else if (normalized.includes('complete') || normalized.includes('done')) counts.complete += 1
+      else counts.active += 1
+    }
+    return counts
+  }, [data.projects])
+
+  const visibleProjects = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return data.projects.filter((project) => {
+      const normalized = project.status.toLowerCase()
+      const matchesFilter =
+        statusFilter === 'All' ||
+        (statusFilter === 'Blocked' && normalized.includes('block')) ||
+        (statusFilter === 'Complete' && (normalized.includes('complete') || normalized.includes('done'))) ||
+        (statusFilter === 'Active' && !normalized.includes('block') && !normalized.includes('complete') && !normalized.includes('done'))
+
+      if (!matchesFilter) return false
+      if (!q) return true
+
+      return (
+        project.name.toLowerCase().includes(q) ||
+        project.owner.toLowerCase().includes(q) ||
+        project.status.toLowerCase().includes(q) ||
+        project.detail.toLowerCase().includes(q)
+      )
+    })
+  }, [data.projects, query, statusFilter])
+
   return (
     <section className="space-y-5" title="Projects view tracks delivery progress and blockers so shipping stays predictable.">
       <div className="flex justify-end">
@@ -697,8 +732,40 @@ function ProjectsView({ data }: { data: MissionControlData }) {
         </div>
       </article>
 
+      <article className="rounded-[28px] border border-white/8 bg-[#091120]/90 p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search projects, owners, or status"
+            className="w-full max-w-sm rounded-xl border border-white/10 bg-[#070c17] px-3 py-2 text-sm text-white placeholder:text-slate-500"
+          />
+          <div className="flex flex-wrap gap-2">
+            {([
+              ['All', data.projects.length],
+              ['Active', projectCounts.active],
+              ['Blocked', projectCounts.blocked],
+              ['Complete', projectCounts.complete],
+            ] as const).map(([label, count]) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => setStatusFilter(label)}
+                className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                  statusFilter === label
+                    ? 'border-cyan-300/50 bg-cyan-300/20 text-cyan-100'
+                    : 'border-white/15 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'
+                }`}
+              >
+                {label} · {count}
+              </button>
+            ))}
+          </div>
+        </div>
+      </article>
+
       <div className="grid gap-4 xl:grid-cols-3">
-        {data.projects.map((project) => {
+        {visibleProjects.map((project) => {
           const ownerTheme = agentTheme(project.owner)
           return (
           <article key={project.name} className="rounded-[32px] border border-white/8 border-l-4 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]" style={{ borderLeftColor: ownerTheme.color }} title="Project cards show delivery status, ownership, and latest commit proof.">
@@ -740,6 +807,12 @@ function ProjectsView({ data }: { data: MissionControlData }) {
           )
         })}
       </div>
+
+      {!visibleProjects.length ? (
+        <article className="rounded-[28px] border border-dashed border-white/12 bg-white/[0.02] p-5 text-sm text-slate-300">
+          No projects match this filter yet. Try a broader search or switch status chips.
+        </article>
+      ) : null}
 
       {selected ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4">
