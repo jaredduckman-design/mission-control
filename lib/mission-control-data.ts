@@ -499,6 +499,25 @@ function humanizeName(input?: string) {
     .replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
+function extractMentionedAgents(text: string) {
+  if (!text) return [] as AgentName[]
+  const lowered = text.toLowerCase()
+  const found = AGENT_NAMES.filter((name) => new RegExp(`\\b${name.toLowerCase()}\\b`, 'i').test(lowered))
+  return [...new Set(found)]
+}
+
+function isCrossAgentEvent(text: string, primaryAgent?: AgentName) {
+  const mentioned = extractMentionedAgents(text)
+  if (!primaryAgent) return mentioned.length >= 2
+
+  const hasPrimary = mentioned.some((name) => name === primaryAgent)
+  const hasOther = mentioned.some((name) => name !== primaryAgent)
+  if (hasPrimary && hasOther) return true
+
+  if (!hasPrimary && mentioned.length >= 1) return true
+  return false
+}
+
 function extractJobDays(expr?: string) {
   if (!expr) return [TODAY_LABEL]
   const parts = expr.trim().split(/\s+/)
@@ -1060,20 +1079,28 @@ export async function getMissionControlData(): Promise<MissionControlData> {
       const hasRepo = await pathExists(gitDir)
       if (!hasRepo) continue
 
-      const { stdout } = await execFileAsync('git', ['log', '--pretty=format:%ct|%s|%cr', '-n', '1'], {
+      const { stdout } = await execFileAsync('git', ['log', '--pretty=format:%ct|%s|%cr', '-n', '8'], {
         cwd: workspace,
         timeout: 10_000,
       })
 
-      const line = stdout.trim().split('\n').find(Boolean)
-      if (!line) continue
-      const [timestampRaw, message, relative] = line.split('|')
-      const committedAtMs = Number.parseInt(timestampRaw ?? '', 10) * 1000
-      if (!message || !relative || Number.isNaN(committedAtMs)) continue
-      gitTickerEventsRaw.push({
-        event: `${agentName} committed ${message.trim()} · ${relative.trim()}`,
-        committedAtMs,
-      })
+      const lines = stdout
+        .trim()
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+
+      for (const line of lines) {
+        const [timestampRaw, message, relative] = line.split('|')
+        const committedAtMs = Number.parseInt(timestampRaw ?? '', 10) * 1000
+        if (!message || !relative || Number.isNaN(committedAtMs)) continue
+        if (!isCrossAgentEvent(message, agentName)) continue
+
+        gitTickerEventsRaw.push({
+          event: `${agentName} committed ${message.trim()} · ${relative.trim()}`,
+          committedAtMs,
+        })
+      }
     } catch {
       // Ignore per-agent git failures so the world page still renders.
     }
@@ -1087,7 +1114,11 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     ...cronJobs
       .filter((job) => {
         if (typeof job.state?.lastRunAtMs !== 'number') return false
-        return AGENT_NAMES.some((name) => name.toLowerCase() === (job.agentId ?? '').toLowerCase())
+        const agent = AGENT_NAMES.find((name) => name.toLowerCase() === (job.agentId ?? '').toLowerCase())
+        if (!agent) return false
+
+        const context = [job.name, job.description, job.payload?.message].filter(Boolean).join(' ')
+        return isCrossAgentEvent(context, agent)
       })
       .map((job) => {
         const agent = AGENT_NAMES.find((name) => name.toLowerCase() === (job.agentId ?? '').toLowerCase()) ?? 'System'
