@@ -47,6 +47,14 @@ const BUILDING_BY_AGENT: Record<string, string> = {
   Quill: 'Studio',
 }
 
+const BUILDING_GLOW_COLOR: Record<string, string> = {
+  HQ: '239,68,68',
+  Lab: '34,197,94',
+  Bank: '245,158,11',
+  Library: '59,130,246',
+  Studio: '168,85,247',
+}
+
 const WORLD_WIDTH = 820
 const WORLD_HEIGHT = 560
 
@@ -330,7 +338,8 @@ export function WorldView({ world }: WorldViewProps) {
         makePixelRect(ctx, building.x, building.y, building.w, building.h, building.color)
         if (isBuildingActive) {
           const pulse = 0.2 + Math.abs(Math.sin(now / 380)) * 0.25
-          makePixelRect(ctx, building.x - 4, building.y - 4, building.w + 8, 6, `rgba(255,255,255,${pulse})`, 2)
+          const glowRgb = BUILDING_GLOW_COLOR[building.label] ?? '255,255,255'
+          makePixelRect(ctx, building.x - 4, building.y - 4, building.w + 8, 6, `rgba(${glowRgb},${pulse})`, 2)
         }
         makePixelRect(ctx, building.x + 8, building.y + 8, building.w - 16, 16, '#f8fafc')
         ctx.fillStyle = '#0b1220'
