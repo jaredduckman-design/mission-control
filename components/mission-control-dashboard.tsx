@@ -6,12 +6,13 @@ import { useRouter } from 'next/navigation'
 import type { MissionControlData } from '../lib/mission-control-data'
 import { WorldView } from './world-view'
 
-const navItems = ['Overview', 'Schedule', 'Agents', 'Portfolio', 'Projects', 'World', 'Memory', 'Documents', 'System', 'Settings'] as const
+const navItems = ['Overview', 'Schedule', 'Agents', 'Approvals', 'Portfolio', 'Projects', 'World', 'Memory', 'Documents', 'System', 'Settings'] as const
 
 const NAV_OWNER: Record<(typeof navItems)[number], AgentName> = {
   Overview: 'Karl',
   Schedule: 'Karl',
   Agents: 'Karl',
+  Approvals: 'Karl',
   Portfolio: 'Warren',
   Projects: 'Hex',
   World: 'Karl',
@@ -25,6 +26,7 @@ const NAV_TOOLTIPS: Record<(typeof navItems)[number], string> = {
   Overview: 'Quickly answers what is happening right now and what needs attention first.',
   Schedule: 'Shows when background jobs run so you can predict workload and timing.',
   Agents: 'Explains who each agent is, what they own, and whether they are healthy or blocked.',
+  Approvals: 'Queues decisions and sign-offs so blocked work gets cleared quickly.',
   Portfolio: 'Summarizes money posture and risk in simple percentages and holdings.',
   Projects: 'Tracks delivery progress, recent commits, and blockers for active work.',
   World: 'Pixel-town map showing where each agent is moving and what task they are actively handling.',
@@ -127,6 +129,12 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
           eyebrow: 'Agent ops',
           title: 'Live ownership, recent motion, and confidence by agent.',
           description: 'Karl keeps the routing tight, Hex ships the product, and Warren watches the operational edge cases.',
+        }
+      case 'Approvals':
+        return {
+          eyebrow: 'Approvals queue',
+          title: 'Decision requests that need a quick yes/no to unblock delivery.',
+          description: 'This view consolidates blockers from projects, system warnings, and agent handoffs into one clean queue.',
         }
       case 'Portfolio':
         return {
@@ -284,6 +292,7 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
           {activeView === 'Overview' && <OverviewView data={data} />}
           {activeView === 'Schedule' && <ScheduleView data={data} liveSyncLabel={liveSyncLabel} />}
           {activeView === 'Agents' && <AgentsView data={data} />}
+          {activeView === 'Approvals' && <ApprovalsView data={data} />}
           {activeView === 'Portfolio' && <PortfolioView data={data} />}
           {activeView === 'Projects' && <ProjectsView data={data} />}
           {activeView === 'World' && <WorldView world={data.world} />}
@@ -508,6 +517,82 @@ function AgentsView({ data }: { data: MissionControlData }) {
           })}
         </div>
       </div>
+      </div>
+    </section>
+  )
+}
+
+function ApprovalsView({ data }: { data: MissionControlData }) {
+  const approvals = [
+    ...data.projects
+      .filter((project) => project.blockers.length > 0)
+      .map((project) => ({
+        owner: project.owner,
+        item: `${project.name}: clear blocker`,
+        urgency: 'High',
+        detail: project.blockers[0],
+      })),
+    ...data.agents.cards
+      .filter((agent) => (agent.pendingDelegations ?? 0) > 0)
+      .map((agent) => ({
+        owner: agent.name,
+        item: `${agent.pendingDelegations} pending delegation${agent.pendingDelegations === 1 ? '' : 's'}`,
+        urgency: 'Medium',
+        detail: `Routing follow-ups needed for ${agent.focus.toLowerCase()}.`,
+      })),
+    ...data.system.securityWarnings.slice(0, 2).map((warning) => ({
+      owner: 'Karl',
+      item: 'Review system warning',
+      urgency: 'Medium',
+      detail: warning,
+    })),
+  ]
+
+  const deduped = approvals.filter((approval, index) =>
+    approvals.findIndex((candidate) => candidate.item === approval.item && candidate.detail === approval.detail) === index,
+  )
+
+  return (
+    <section className="space-y-4" title="Approvals queue keeps decision bottlenecks visible so blockers can be cleared quickly.">
+      <div className="grid gap-4 md:grid-cols-3">
+        <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Needs decision</p>
+          <p className="mt-2 text-2xl font-semibold text-white">{deduped.length}</p>
+          <p className="mt-1 text-sm text-slate-300">Active approvals requiring owner input</p>
+        </article>
+        <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">High urgency</p>
+          <p className="mt-2 text-2xl font-semibold text-white">{deduped.filter((item) => item.urgency === 'High').length}</p>
+          <p className="mt-1 text-sm text-slate-300">Blockers that directly stall delivery</p>
+        </article>
+        <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">System linked</p>
+          <p className="mt-2 text-2xl font-semibold text-white">{deduped.filter((item) => item.item.toLowerCase().includes('system')).length}</p>
+          <p className="mt-1 text-sm text-slate-300">Approvals tied to runtime + reliability state</p>
+        </article>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {deduped.length ? (
+          deduped.map((approval, index) => (
+            <article key={`${approval.item}-${index}`} className="h-full rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{approval.owner}</p>
+                <span
+                  className={`rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${approval.urgency === 'High' ? 'border-rose-400/50 bg-rose-400/15 text-rose-100' : 'border-amber-300/40 bg-amber-300/10 text-amber-100'}`}
+                >
+                  {approval.urgency}
+                </span>
+              </div>
+              <h3 className="mt-3 text-lg font-semibold text-white">{approval.item}</h3>
+              <p className="mt-2 text-sm text-slate-300">{approval.detail}</p>
+            </article>
+          ))
+        ) : (
+          <article className="rounded-3xl border border-emerald-400/30 bg-emerald-500/10 p-5 text-sm text-emerald-100 md:col-span-2 xl:col-span-3">
+            No approvals waiting right now — everything is unblocked.
+          </article>
+        )}
       </div>
     </section>
   )
