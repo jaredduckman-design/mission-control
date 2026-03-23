@@ -17,6 +17,11 @@ type Walker = {
   pace: 'fast' | 'slow'
   progress: number
   direction: 1 | -1
+  statusDot: 'green' | 'amber' | 'red' | 'gray'
+  warning: boolean
+  sad: boolean
+  lastActiveMinutes: number | null
+  queueCount: number
 }
 
 const COLOR_MAP: Record<string, string> = {
@@ -25,6 +30,21 @@ const COLOR_MAP: Record<string, string> = {
   Warren: '#f59e0b',
   Scout: '#3b82f6',
   Quill: '#a855f7',
+}
+
+const DOT_COLOR: Record<Walker['statusDot'], string> = {
+  green: '#22c55e',
+  amber: '#f59e0b',
+  red: '#ef4444',
+  gray: '#94a3b8',
+}
+
+const BUILDING_BY_AGENT: Record<string, string> = {
+  Karl: 'HQ',
+  Hex: 'Lab',
+  Warren: 'Bank',
+  Scout: 'Library',
+  Quill: 'Studio',
 }
 
 const WORLD_WIDTH = 820
@@ -60,11 +80,20 @@ function wrapBubbleText(text: string, maxChars = 34, maxLines = 2) {
   })
 
   if (current) lines.push(current)
-
   if (lines.length <= maxLines) return lines
+
   const limited = lines.slice(0, maxLines)
   limited[maxLines - 1] = `${limited[maxLines - 1].slice(0, Math.max(0, maxChars - 1)).trimEnd()}…`
   return limited
+}
+
+function formatLastActive(minutes: number | null) {
+  if (minutes === null) return 'No recent run'
+  if (minutes < 1) return 'Just now'
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  const rem = minutes % 60
+  return rem ? `${hours}h ${rem}m ago` : `${hours}h ago`
 }
 
 export function WorldView({ world }: WorldViewProps) {
@@ -113,7 +142,19 @@ export function WorldView({ world }: WorldViewProps) {
         status: 'Working',
         currentTask: `Demo mode: ${agent.name} running showcase workflow`,
         pace: 'fast' as const,
+        statusDot: 'green' as const,
+        warning: false,
+        sad: false,
+        lastActiveMinutes: 1,
+        queueCount: Math.max(2, agent.queueCount),
       })),
+      health: {
+        totalAgents: world.health.totalAgents,
+        activeNow: world.health.totalAgents,
+        blocked: 0,
+        state: 'All clear ✅' as const,
+      },
+      ticker: world.agents.map((agent, idx) => `${agent.name} demo pipeline active · ${idx + 1}m ago`).slice(0, 5),
     }
   }, [demoMode, world])
 
@@ -128,6 +169,11 @@ export function WorldView({ world }: WorldViewProps) {
       pace: agent.pace,
       progress: (idx * 0.17) % 1,
       direction: idx % 2 === 0 ? 1 : -1,
+      statusDot: agent.statusDot,
+      warning: agent.warning,
+      sad: agent.sad,
+      lastActiveMinutes: agent.lastActiveMinutes,
+      queueCount: agent.queueCount,
     }))
   }, [landmarks, worldData.agents])
 
@@ -190,10 +236,7 @@ export function WorldView({ world }: WorldViewProps) {
       step += 1
     }
 
-    if (audio.state === 'suspended') {
-      audio.resume().catch(() => undefined)
-    }
-
+    if (audio.state === 'suspended') audio.resume().catch(() => undefined)
     playStep()
     loopRef.current = window.setInterval(playStep, 260)
 
@@ -234,6 +277,7 @@ export function WorldView({ world }: WorldViewProps) {
       const scale = Math.min(width / WORLD_WIDTH, height / WORLD_HEIGHT)
       const offsetX = (width - WORLD_WIDTH * scale) / 2
       const offsetY = (height - WORLD_HEIGHT * scale) / 2
+      const celestialX = ((now / 1000) * 6) % (WORLD_WIDTH + 180) - 90
 
       ctx.fillStyle = '#060b16'
       ctx.fillRect(0, 0, width, height)
@@ -247,16 +291,24 @@ export function WorldView({ world }: WorldViewProps) {
       ctx.fillRect(0, WORLD_HEIGHT * 0.34, WORLD_WIDTH, WORLD_HEIGHT * 0.66)
 
       if (isNight) {
-        for (let i = 0; i < 40; i += 1) {
+        for (let i = 0; i < 36; i += 1) {
+          const starX = ((i * 47) + (now / 80) * (i % 3 === 0 ? 1 : -0.6)) % WORLD_WIDTH
+          const starY = 20 + ((i * 29) % 120)
           ctx.fillStyle = i % 2 === 0 ? '#fef3c7' : '#dbeafe'
-          ctx.fillRect((i * 57) % WORLD_WIDTH, 20 + ((i * 31) % 120), 2, 2)
+          ctx.fillRect(starX, starY, 2, 2)
         }
+        ctx.fillStyle = '#e5e7eb'
+        ctx.beginPath()
+        ctx.arc(celestialX, 72, 26, 0, Math.PI * 2)
+        ctx.fill()
       } else {
         ctx.fillStyle = '#fde047'
         ctx.beginPath()
-        ctx.arc(WORLD_WIDTH - 70, 70, 30, 0, Math.PI * 2)
+        ctx.arc(celestialX, 72, 30, 0, Math.PI * 2)
         ctx.fill()
       }
+
+      const activeNames = new Set(walkersRef.current.filter((walker) => walker.statusDot === 'green').map((walker) => walker.name))
 
       const buildings = [
         { x: 70, y: 90, w: 120, h: 90, label: 'HQ', color: '#1e3a8a' },
@@ -267,7 +319,13 @@ export function WorldView({ world }: WorldViewProps) {
       ]
 
       buildings.forEach((building) => {
+        const activeAgent = walkersRef.current.find((walker) => BUILDING_BY_AGENT[walker.name] === building.label)
+        const isBuildingActive = activeAgent ? activeNames.has(activeAgent.name) : false
         makePixelRect(ctx, building.x, building.y, building.w, building.h, building.color)
+        if (isBuildingActive) {
+          const pulse = 0.2 + Math.abs(Math.sin(now / 380)) * 0.25
+          makePixelRect(ctx, building.x - 4, building.y - 4, building.w + 8, 6, `rgba(255,255,255,${pulse})`, 2)
+        }
         makePixelRect(ctx, building.x + 8, building.y + 8, building.w - 16, 16, '#f8fafc')
         ctx.fillStyle = '#0b1220'
         ctx.font = 'bold 12px monospace'
@@ -275,7 +333,7 @@ export function WorldView({ world }: WorldViewProps) {
       })
 
       walkersRef.current.forEach((walker) => {
-        const speed = walker.pace === 'fast' ? 0.23 : 0.11
+        const speed = walker.pace === 'fast' ? 0.23 : 0
         walker.progress += speed * dt * walker.direction
 
         if (walker.progress >= 1) {
@@ -306,10 +364,29 @@ export function WorldView({ world }: WorldViewProps) {
           ctx.fillText(line, bubbleX + 6, bubbleY + 18 + lineIndex * 12)
         })
 
+        if (walker.warning) {
+          ctx.fillStyle = '#ef4444'
+          ctx.font = '16px monospace'
+          ctx.fillText('⚠', x - 6, y - 28)
+        }
+
+        ctx.fillStyle = DOT_COLOR[walker.statusDot]
+        const pulseSize = walker.statusDot === 'green' ? 4 + Math.abs(Math.sin(now / 180)) * 2 : 4
+        ctx.beginPath()
+        ctx.arc(x, y - 24, pulseSize, 0, Math.PI * 2)
+        ctx.fill()
+
         makePixelRect(ctx, x - 9, y - 10, 18, 18, COLOR_MAP[walker.name] ?? '#94a3b8')
         ctx.fillStyle = '#020617'
         ctx.font = '14px serif'
-        ctx.fillText(walker.emoji, x - 7, y + 4)
+        ctx.fillText(walker.sad ? '☹' : walker.emoji, x - 7, y + 4)
+
+        if (walker.statusDot === 'green') {
+          for (let i = 0; i < 3; i += 1) {
+            ctx.fillStyle = '#fef08a'
+            ctx.fillRect(x + 12 + i * 3, y - 6 + ((now / 120 + i) % 8), 2, 2)
+          }
+        }
 
         ctx.fillStyle = '#f8fafc'
         ctx.font = '10px monospace'
@@ -323,6 +400,8 @@ export function WorldView({ world }: WorldViewProps) {
     raf = window.requestAnimationFrame(draw)
     return () => window.cancelAnimationFrame(raf)
   }, [torontoHour])
+
+  const tickerText = worldData.ticker.length ? worldData.ticker.join('  |  ') : 'No recent cross-agent events available yet.'
 
   return (
     <section className="space-y-4" title="World view gives a live pixel-town snapshot of each agent moving between landmarks.">
@@ -352,8 +431,35 @@ export function WorldView({ world }: WorldViewProps) {
           </div>
         </div>
 
+        <div className={`mt-4 grid gap-3 rounded-2xl border px-4 py-3 text-xs sm:grid-cols-4 ${worldData.health.blocked > 0 ? 'border-red-300/30 bg-red-500/10 text-red-100' : 'border-emerald-300/30 bg-emerald-500/10 text-emerald-100'}`}>
+          <p>Total agents: <span className="font-semibold">{worldData.health.totalAgents}</span></p>
+          <p>Active now: <span className="font-semibold">{worldData.health.activeNow}</span></p>
+          <p>Blocked: <span className="font-semibold">{worldData.health.blocked}</span></p>
+          <p>Overall state: <span className="font-semibold">{worldData.health.state}</span></p>
+        </div>
+
         <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-[#060b16]">
           <canvas ref={canvasRef} className="h-[360px] w-full sm:h-[480px] lg:h-[560px]" aria-label="Pixel world with moving agents and speech bubbles" />
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {worldData.agents.map((agent) => (
+            <article key={agent.name} className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-xs text-slate-200">
+              <p className="flex items-center gap-2 font-semibold text-white">
+                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: DOT_COLOR[agent.statusDot] }} />
+                {agent.name}
+                {agent.warning ? <span className="text-red-300">⚠</span> : null}
+              </p>
+              <p className="mt-2 text-slate-300">Last active: {formatLastActive(agent.lastActiveMinutes)}</p>
+              <p className="mt-1 truncate text-slate-300" title={agent.currentTask}>Last task: {agent.currentTask}</p>
+              <p className="mt-1 text-slate-300">Status: {agent.status}</p>
+              <p className="mt-1 text-slate-300">Tasks in queue: {agent.queueCount}</p>
+            </article>
+          ))}
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded-xl border border-white/10 bg-[#050a14] py-2">
+          <div className="whitespace-nowrap text-xs text-cyan-100 animate-[marquee_25s_linear_infinite] px-3">{tickerText}</div>
         </div>
       </article>
     </section>

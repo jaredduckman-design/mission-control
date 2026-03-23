@@ -185,12 +185,24 @@ type WorldAgent = {
   currentTask: string
   landmarks: [string, string]
   pace: 'fast' | 'slow'
+  lastActiveMinutes: number | null
+  queueCount: number
+  statusDot: 'green' | 'amber' | 'red' | 'gray'
+  warning: boolean
+  sad: boolean
 }
 
 type WorldData = {
   localHourToronto: number
   isNight: boolean
   agents: WorldAgent[]
+  health: {
+    totalAgents: number
+    activeNow: number
+    blocked: number
+    state: 'All clear ✅' | 'Issues ⚠️'
+  }
+  ticker: string[]
 }
 
 type CronJob = {
@@ -985,51 +997,126 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     }).format(new Date()),
   )
 
+  const taskLines = currentTask
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith('#'))
+  const baseQueue = Math.max(1, Math.round(taskLines.length / AGENT_NAMES.length))
+
+  const queueForAgent = (agentName: AgentName) => {
+    const mentions = taskLines.filter((line) => line.toLowerCase().includes(agentName.toLowerCase())).length
+    return Math.max(1, baseQueue + mentions)
+  }
+
+  const statusForAgent = (agentName: AgentName) => {
+    const jobs = cronJobs.filter((job) => (job.agentId ?? '').toLowerCase() === agentName.toLowerCase())
+    const running = jobs.some((job) => Boolean(job.state?.runningAtMs))
+    const blocked = jobs.some((job) => summarizeCronStatus(job) === 'Blocked')
+    const recentJob = jobs
+      .filter((job) => typeof job.state?.lastRunAtMs === 'number')
+      .sort((a, b) => (b.state?.lastRunAtMs ?? 0) - (a.state?.lastRunAtMs ?? 0))[0]
+
+    const lastRun = recentJob?.state?.lastRunAtMs
+    const lastActiveMinutes = typeof lastRun === 'number' ? Math.max(0, Math.round((Date.now() - lastRun) / 60000)) : null
+
+    if (running) {
+      return { statusDot: 'green' as const, pace: 'fast' as const, status: 'Working', warning: false, sad: false, lastActiveMinutes }
+    }
+
+    if (blocked) {
+      const consecutiveErrors = Math.max(...jobs.map((job) => job.state?.consecutiveErrors ?? 0), 0)
+      return {
+        statusDot: 'red' as const,
+        pace: 'slow' as const,
+        status: 'Blocked',
+        warning: true,
+        sad: consecutiveErrors > 2,
+        lastActiveMinutes,
+      }
+    }
+
+    if (typeof lastActiveMinutes === 'number' && lastActiveMinutes < 120) {
+      return { statusDot: 'amber' as const, pace: 'slow' as const, status: 'Idle', warning: false, sad: false, lastActiveMinutes }
+    }
+
+    return { statusDot: 'gray' as const, pace: 'slow' as const, status: 'Idle', warning: false, sad: false, lastActiveMinutes }
+  }
+
+  let gitTickerEvents: string[] = []
+  try {
+    const { stdout } = await execFileAsync('git', ['log', '--pretty=format:%s|%cr', '-n', '3'], { cwd: PROJECT_ROOT, timeout: 10_000 })
+    gitTickerEvents = stdout
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [message, relative] = line.split('|')
+        return `Hex committed ${message} · ${relative}`
+      })
+  } catch {
+    gitTickerEvents = []
+  }
+
+  const cronTickerEvents = cronJobs
+    .filter((job) => typeof job.state?.lastRunAtMs === 'number')
+    .sort((a, b) => (b.state?.lastRunAtMs ?? 0) - (a.state?.lastRunAtMs ?? 0))
+    .slice(0, 5)
+    .map((job) => `${humanizeName(job.name)} ${summarizeCronStatus(job).toLowerCase()} · ${formatRelative(job.state?.lastRunAtMs)}`)
+
+  const worldAgents: WorldAgent[] = [
+    {
+      name: 'Karl',
+      emoji: '🦞',
+      currentTask: agentCards.find((agent) => agent.name === 'Karl')?.focus ?? 'Routing priorities for the team',
+      landmarks: ['Desk', 'Mailbox'],
+      ...statusForAgent('Karl'),
+      queueCount: queueForAgent('Karl'),
+    },
+    {
+      name: 'Hex',
+      emoji: '💻',
+      currentTask: agentCards.find((agent) => agent.name === 'Hex')?.focus ?? currentTaskLine,
+      landmarks: ['Computer', 'GitHub Sign'],
+      ...statusForAgent('Hex'),
+      queueCount: queueForAgent('Hex'),
+    },
+    {
+      name: 'Warren',
+      emoji: '💰',
+      currentTask: agentCards.find((agent) => agent.name === 'Warren')?.focus ?? 'Monitoring portfolio and reconciliation',
+      landmarks: ['Stock Ticker', 'Safe'],
+      ...statusForAgent('Warren'),
+      queueCount: queueForAgent('Warren'),
+    },
+    {
+      name: 'Scout',
+      emoji: '🔍',
+      currentTask: agentCards.find((agent) => agent.name === 'Scout')?.focus ?? 'Gathering external signal quality',
+      landmarks: ['Library', 'Magnifier'],
+      ...statusForAgent('Scout'),
+      queueCount: queueForAgent('Scout'),
+    },
+    {
+      name: 'Quill',
+      emoji: '✍️',
+      currentTask: agentCards.find((agent) => agent.name === 'Quill')?.focus ?? 'Preparing concise updates',
+      landmarks: ['Typewriter', 'Scroll'],
+      ...statusForAgent('Quill'),
+      queueCount: queueForAgent('Quill'),
+    },
+  ]
+
   const world: WorldData = {
     localHourToronto: torontoHour,
     isNight: torontoHour < 7 || torontoHour >= 19,
-    agents: [
-      {
-        name: 'Karl',
-        emoji: '🦞',
-        status: agentCards.find((agent) => agent.name === 'Karl')?.status ?? 'Coordinating',
-        currentTask: agentCards.find((agent) => agent.name === 'Karl')?.focus ?? 'Routing priorities for the team',
-        landmarks: ['Desk', 'Mailbox'],
-        pace: cronJobs.some((job) => (job.agentId ?? '').toLowerCase() === 'karl' && job.state?.runningAtMs) ? 'fast' : 'slow',
-      },
-      {
-        name: 'Hex',
-        emoji: '💻',
-        status: agentCards.find((agent) => agent.name === 'Hex')?.status ?? 'Healthy',
-        currentTask: agentCards.find((agent) => agent.name === 'Hex')?.focus ?? currentTaskLine,
-        landmarks: ['Computer', 'GitHub Sign'],
-        pace: cronJobs.some((job) => (job.agentId ?? '').toLowerCase() === 'hex' && job.state?.runningAtMs) ? 'fast' : 'slow',
-      },
-      {
-        name: 'Warren',
-        emoji: '💰',
-        status: agentCards.find((agent) => agent.name === 'Warren')?.status ?? 'Monitoring',
-        currentTask: agentCards.find((agent) => agent.name === 'Warren')?.focus ?? 'Monitoring portfolio and reconciliation',
-        landmarks: ['Stock Ticker', 'Safe'],
-        pace: cronJobs.some((job) => (job.agentId ?? '').toLowerCase() === 'warren' && job.state?.runningAtMs) ? 'fast' : 'slow',
-      },
-      {
-        name: 'Scout',
-        emoji: '🔍',
-        status: agentCards.find((agent) => agent.name === 'Scout')?.status ?? 'Monitoring',
-        currentTask: agentCards.find((agent) => agent.name === 'Scout')?.focus ?? 'Gathering external signal quality',
-        landmarks: ['Library', 'Magnifier'],
-        pace: cronJobs.some((job) => (job.agentId ?? '').toLowerCase() === 'scout' && job.state?.runningAtMs) ? 'fast' : 'slow',
-      },
-      {
-        name: 'Quill',
-        emoji: '✍️',
-        status: agentCards.find((agent) => agent.name === 'Quill')?.status ?? 'Healthy',
-        currentTask: agentCards.find((agent) => agent.name === 'Quill')?.focus ?? 'Preparing concise updates',
-        landmarks: ['Typewriter', 'Scroll'],
-        pace: cronJobs.some((job) => (job.agentId ?? '').toLowerCase() === 'quill' && job.state?.runningAtMs) ? 'fast' : 'slow',
-      },
-    ],
+    agents: worldAgents,
+    health: {
+      totalAgents: worldAgents.length,
+      activeNow: worldAgents.filter((agent) => agent.statusDot === 'green').length,
+      blocked: worldAgents.filter((agent) => agent.statusDot === 'red').length,
+      state: worldAgents.some((agent) => agent.statusDot === 'red') ? 'Issues ⚠️' : 'All clear ✅',
+    },
+    ticker: [...gitTickerEvents, ...cronTickerEvents].slice(0, 5),
   }
 
   return {

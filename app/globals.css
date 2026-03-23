@@ -41,3 +41,12 @@ a {
   background: rgba(103, 232, 249, 0.22);
   color: white;
 }
+
+@keyframes marquee {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
