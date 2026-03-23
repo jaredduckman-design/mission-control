@@ -1019,25 +1019,27 @@ export async function getMissionControlData(): Promise<MissionControlData> {
   const statusForAgent = (agentName: AgentName) => {
     const jobs = cronJobs.filter((job) => (job.agentId ?? '').toLowerCase() === agentName.toLowerCase())
     const running = jobs.some((job) => Boolean(job.state?.runningAtMs))
-    const blocked = jobs.some((job) => summarizeCronStatus(job) === 'Blocked')
     const recentJob = jobs
       .filter((job) => typeof job.state?.lastRunAtMs === 'number')
       .sort((a, b) => (b.state?.lastRunAtMs ?? 0) - (a.state?.lastRunAtMs ?? 0))[0]
 
     const lastRun = recentJob?.state?.lastRunAtMs
     const lastActiveMinutes = typeof lastRun === 'number' ? Math.max(0, Math.round((Date.now() - lastRun) / 60000)) : null
+    const lastRunErrored = recentJob
+      ? recentJob.state?.lastStatus === 'error' || Boolean(recentJob.state?.lastError) || Boolean(recentJob.state?.lastErrorReason)
+      : false
+    const consecutiveErrors = Math.max(...jobs.map((job) => job.state?.consecutiveErrors ?? 0), 0)
 
     if (running) {
       return { statusDot: 'green' as const, pace: 'fast' as const, status: 'Working', warning: false, sad: false, lastActiveMinutes }
     }
 
-    if (blocked) {
-      const consecutiveErrors = Math.max(...jobs.map((job) => job.state?.consecutiveErrors ?? 0), 0)
+    if (lastRunErrored || consecutiveErrors > 0) {
       return {
         statusDot: 'red' as const,
         pace: 'slow' as const,
         status: 'Blocked',
-        warning: true,
+        warning: lastRunErrored,
         sad: consecutiveErrors > 2,
         lastActiveMinutes,
       }
