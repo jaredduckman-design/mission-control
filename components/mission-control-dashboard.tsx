@@ -327,8 +327,7 @@ function OverviewView({ data }: { data: MissionControlData }) {
                   {agent.name === 'Karl' && typeof agent.pendingDelegations === 'number' ? (
                     <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-red-200">Pending delegations: {agent.pendingDelegations}</p>
                   ) : null}
-                  <p className="mt-4 text-xs uppercase tracking-[0.18em] text-slate-500">Last update</p>
-                  <p className="mt-2 truncate text-sm text-slate-300" title={agent.lastUpdate}>{agent.lastUpdate}</p>
+                  <p className="mt-3 truncate text-xs uppercase tracking-[0.16em] text-slate-500" title={agent.lastUpdate}>Latest: {agent.lastUpdate}</p>
                   <div className="mt-4 h-2 rounded-full bg-white/10">
                     <div className="h-2 rounded-full" style={{ width: `${agent.progress}%`, backgroundColor: theme.color }} />
                   </div>
@@ -464,7 +463,7 @@ function AgentsView({ data }: { data: MissionControlData }) {
                 <div className="mt-3 h-2 rounded-full bg-white/10">
                   <div className="h-2 rounded-full" style={{ width: `${agent.progress}%`, backgroundColor: theme.color }} />
                 </div>
-                <p className="mt-3 truncate text-sm text-slate-300" title={agent.lastUpdate}>{agent.lastUpdate}</p>
+                <p className="mt-3 truncate text-xs uppercase tracking-[0.16em] text-slate-400" title={agent.lastUpdate}>Latest: {agent.lastUpdate}</p>
               </div>
             </article>
           )
