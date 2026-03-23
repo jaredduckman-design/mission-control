@@ -350,8 +350,12 @@ export function WorldView({ world }: WorldViewProps) {
           walker.direction = 1
         }
 
-        const x = walker.from.x + (walker.to.x - walker.from.x) * walker.progress
-        const y = walker.from.y + (walker.to.y - walker.from.y) * walker.progress
+        const baseX = walker.from.x + (walker.to.x - walker.from.x) * walker.progress
+        const baseY = walker.from.y + (walker.to.y - walker.from.y) * walker.progress
+        const stuckShake = walker.sad ? Math.sin(now / 90) * 1.8 : 0
+        const stuckBob = walker.sad ? Math.sin(now / 140) * 0.6 : 0
+        const x = baseX + stuckShake
+        const y = baseY + stuckBob
 
         const bubbleText = `${walker.name} (${walker.status}): ${walker.task}`
         const bubbleLines = wrapBubbleText(bubbleText, 34, 2)
@@ -399,6 +403,14 @@ export function WorldView({ world }: WorldViewProps) {
         ctx.fillStyle = '#020617'
         ctx.font = '14px serif'
         ctx.fillText(walker.sad ? '☹' : walker.emoji, x - 7, y + 4)
+
+        if (walker.sad) {
+          const lockPulse = 0.25 + Math.abs(Math.sin(now / 210)) * 0.45
+          makePixelRect(ctx, x - 12, y + 11, 24, 3, `rgba(239,68,68,${lockPulse})`, 1)
+          ctx.fillStyle = '#fca5a5'
+          ctx.font = '10px monospace'
+          ctx.fillText('STUCK', x - 15, y - 16)
+        }
 
         if (walker.statusDot === 'green') {
           for (let i = 0; i < 3; i += 1) {
