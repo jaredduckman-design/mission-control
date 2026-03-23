@@ -1140,7 +1140,8 @@ export async function getMissionControlData(): Promise<MissionControlData> {
 
   const activeNow = worldAgents.filter((agent) => agent.statusDot === 'green').length
   const blockedNow = worldAgents.filter((agent) => agent.statusDot === 'red').length
-  const worldTone = blockedNow > 0 ? 'red' : activeNow === 0 ? 'amber' : 'green'
+  const dormantNow = worldAgents.filter((agent) => agent.statusDot === 'gray').length
+  const worldTone = blockedNow > 0 ? 'red' : dormantNow > 0 ? 'amber' : 'green'
 
   const world: WorldData = {
     localHourToronto: torontoHour,
