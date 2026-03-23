@@ -33,12 +33,14 @@ const NAV_TOOLTIPS: Record<(typeof navItems)[number], string> = {
 
 type View = (typeof navItems)[number]
 
-type AgentName = 'Karl' | 'Hex' | 'Warren'
+type AgentName = 'Karl' | 'Hex' | 'Warren' | 'Scout' | 'Quill'
 
 const AGENT_THEME: Record<AgentName, { color: string; emoji: string; tagline: string }> = {
   Karl: { color: '#ef4444', emoji: '🦞', tagline: 'Your AI chief of staff' },
   Hex: { color: '#00ff88', emoji: '💻', tagline: 'Builds while you sleep' },
   Warren: { color: '#f59e0b', emoji: '💰', tagline: 'Watches your money' },
+  Scout: { color: '#3b82f6', emoji: '🛰️', tagline: 'Finds signal before noise' },
+  Quill: { color: '#a855f7', emoji: '✍️', tagline: 'Writes clear updates fast' },
 }
 
 function toneClasses(tone: 'violet' | 'cyan' | 'emerald' | 'amber') {
@@ -322,6 +324,9 @@ function OverviewView({ data }: { data: MissionControlData }) {
                   </div>
 
                   <p className="mt-4 truncate text-sm leading-6" style={{ color: agent.name === 'Warren' ? '#fde68a' : '#e2e8f0' }}>{agent.focus}</p>
+                  {agent.name === 'Karl' && typeof agent.pendingDelegations === 'number' ? (
+                    <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-red-200">Pending delegations: {agent.pendingDelegations}</p>
+                  ) : null}
                   <p className="mt-4 text-xs uppercase tracking-[0.18em] text-slate-500">Last update</p>
                   <p className="mt-2 truncate text-sm text-slate-300" title={agent.lastUpdate}>{agent.lastUpdate}</p>
                   <div className="mt-4 h-2 rounded-full bg-white/10">
@@ -448,6 +453,9 @@ function AgentsView({ data }: { data: MissionControlData }) {
                 <p className="mt-2 truncate text-sm" style={{ color: agent.name === 'Warren' ? '#fcd34d' : '#94a3b8' }} title={theme.tagline}>{theme.tagline}</p>
               </div>
               <p className="mt-4 truncate text-sm leading-7" style={{ color: agent.name === 'Warren' ? '#fde68a' : '#e2e8f0' }}>{agent.focus}</p>
+              {agent.name === 'Karl' && typeof agent.pendingDelegations === 'number' ? (
+                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-red-200">Pending delegations: {agent.pendingDelegations}</p>
+              ) : null}
               <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.04] p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
                   <span className="text-slate-300">Status</span>
@@ -464,8 +472,19 @@ function AgentsView({ data }: { data: MissionControlData }) {
       </div>
 
       <div className="rounded-[32px] border border-white/8 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Recent activity</p>
-        <h3 className="mt-2 text-2xl font-semibold text-white">Latest motion</h3>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Delegation flow</p>
+        <h3 className="mt-2 text-2xl font-semibold text-white">Jared → Karl → (Hex / Warren / Scout / Quill)</h3>
+        <div className="mt-4 rounded-3xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-200">
+          <p className="font-semibold text-white">Routing map</p>
+          <p className="mt-2">Jared initiates direction, Karl routes work, specialists execute by domain.</p>
+        </div>
+        <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Recent activity</p>
+        <div className="mt-2 flex flex-wrap gap-2 text-xs">
+          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-slate-200">#hex-updates</span>
+          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-slate-200">#warren-updates</span>
+          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-slate-200">#scout-updates</span>
+          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-slate-200">#quill-updates</span>
+        </div>
         <div className="mt-5 space-y-3">
           {data.agents.recentActivity.map((item) => {
             const theme = agentTheme(item.agent)

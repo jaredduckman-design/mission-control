@@ -10,7 +10,7 @@ const execFileAsync = promisify(execFile)
 const WORKSPACE_ROOT = '/Users/jaredbot/.openclaw/workspace-hex'
 const PROJECT_ROOT = '/Users/jaredbot/.openclaw/workspace-hex/projects/mission-control'
 const MEMORY_ROOT = '/Users/jaredbot/.openclaw/workspace/memory'
-const AGENT_NAMES = ['Karl', 'Hex', 'Warren'] as const
+const AGENT_NAMES = ['Karl', 'Hex', 'Warren', 'Scout', 'Quill'] as const
 const WEEKDAY_ORDER = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 const TODAY = new Date()
 const TODAY_LABEL = WEEKDAY_ORDER[TODAY.getDay()]
@@ -40,8 +40,9 @@ type AgentCard = {
   status: string
   focus: string
   progress: number
-  accent: 'violet' | 'cyan' | 'emerald'
+  accent: 'violet' | 'cyan' | 'emerald' | 'amber' | 'blue'
   lastUpdate: string
+  pendingDelegations?: number
 }
 
 type TimelineItem = {
@@ -249,6 +250,8 @@ const AGENT_META: Record<AgentName, { role: string; accent: AgentCard['accent'] 
   Karl: { role: 'Chief of Staff', accent: 'violet' },
   Hex: { role: 'Build Execution', accent: 'cyan' },
   Warren: { role: 'Markets / Ops', accent: 'emerald' },
+  Scout: { role: 'Research Scout', accent: 'blue' },
+  Quill: { role: 'Comms Writer', accent: 'amber' },
 }
 
 async function safeRead(filePath: string) {
@@ -663,14 +666,20 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     ? `Project folder active since ${repoStat.birthtime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
     : 'Project folder ready'
 
+  const pendingDelegations = cronJobs.filter((job) => {
+    const agent = (job.agentId ?? '').toLowerCase()
+    return ['hex', 'warren', 'scout', 'quill'].includes(agent) && !job.state?.runningAtMs
+  }).length
+
   const agentCards: AgentCard[] = [
     {
       name: 'Karl',
       role: AGENT_META.Karl.role,
       status: cronJobs.some((job) => (job.agentId ?? '').toLowerCase() === 'karl' && job.state?.runningAtMs) ? 'Running' : 'Coordinating',
-      focus: 'Queue building, overnight work routing, and morning brief reliability.',
+      focus: 'Your only point of contact. Delegates everything to the right specialist.',
       progress: getAgentProgress('Karl', cronJobs, 68),
       accent: AGENT_META.Karl.accent,
+      pendingDelegations,
       lastUpdate: 'Cron-backed coordination data is now visible from the live local scheduler.',
     },
     {
@@ -690,6 +699,24 @@ export async function getMissionControlData(): Promise<MissionControlData> {
       progress: getAgentProgress('Warren', cronJobs, 61),
       accent: AGENT_META.Warren.accent,
       lastUpdate: 'Market brief jobs now surface blocked states instead of pretending everything is fine.',
+    },
+    {
+      name: 'Scout',
+      role: AGENT_META.Scout.role,
+      status: cronJobs.some((job) => (job.agentId ?? '').toLowerCase() === 'scout' && job.state?.runningAtMs) ? 'Running' : 'Monitoring',
+      focus: 'Scans external signals, issues, and context before execution starts.',
+      progress: getAgentProgress('Scout', cronJobs, 64),
+      accent: AGENT_META.Scout.accent,
+      lastUpdate: 'Scout reports now route into the same live activity stream for faster triage.',
+    },
+    {
+      name: 'Quill',
+      role: AGENT_META.Quill.role,
+      status: cronJobs.some((job) => (job.agentId ?? '').toLowerCase() === 'quill' && job.state?.runningAtMs) ? 'Running' : 'Healthy',
+      focus: 'Turns raw execution updates into clean, readable messages for humans.',
+      progress: getAgentProgress('Quill', cronJobs, 66),
+      accent: AGENT_META.Quill.accent,
+      lastUpdate: 'Quill-ready summaries now appear in activity timelines and proof workflows.',
     },
   ]
 
@@ -794,6 +821,18 @@ export async function getMissionControlData(): Promise<MissionControlData> {
       agent: 'Warren',
       summary: 'Reliability signal exposed',
       detail: 'Timeouts and blocked jobs now show up in the schedule and overview cards.',
+      time: 'Today',
+    },
+    {
+      agent: 'Scout',
+      summary: 'New research pulse connected',
+      detail: 'Scout signals are now expected in #scout-updates for fast context handoff.',
+      time: 'Today',
+    },
+    {
+      agent: 'Quill',
+      summary: 'Comms summaries added',
+      detail: 'Quill output channel #quill-updates is now part of the operating activity feed.',
       time: 'Today',
     },
   ]
