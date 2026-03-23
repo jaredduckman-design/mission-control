@@ -306,12 +306,12 @@ function OverviewView({ data }: { data: MissionControlData }) {
             <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">Execution visibility</div>
           </div>
 
-          <div className="mt-5 grid gap-4 xl:grid-cols-3">
+          <div className="mt-5 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
             {data.overview.agentCards.map((agent) => {
               const theme = agentTheme(agent.name)
               return (
-                <article key={agent.name} className="rounded-[28px] border border-white/8 border-l-4 bg-white/[0.03] p-4" style={{ borderLeftColor: theme.color }} title="Each agent card shows ownership, live status, and progress so you know who is doing what.">
-                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+                <article key={agent.name} className="rounded-[28px] border border-white/8 border-l-4 bg-white/[0.03] p-4 min-h-[228px]" style={{ borderLeftColor: theme.color }} title="Each agent card shows ownership, live status, and progress so you know who is doing what.">
+                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: theme.color, boxShadow: `0 0 16px ${theme.color}` }} />
@@ -439,11 +439,11 @@ function AgentsView({ data }: { data: MissionControlData }) {
         <SectionHint text="Agents shows ownership, status, and recent actions so accountability is obvious at a glance." />
       </div>
       <div className="grid gap-5 2xl:grid-cols-[1.1fr_0.9fr]">
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
         {data.agents.cards.map((agent) => {
           const theme = agentTheme(agent.name)
           return (
-            <article key={agent.name} className="rounded-[32px] border border-white/8 border-l-4 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]" style={{ borderLeftColor: theme.color }} title="Agent identity card: who they are, what they own, and how execution is going.">
+            <article key={agent.name} className="rounded-[32px] border border-white/8 border-l-4 bg-[#091120]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)] min-h-[280px]" style={{ borderLeftColor: theme.color }} title="Agent identity card: who they are, what they own, and how execution is going.">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: theme.color, boxShadow: `0 0 16px ${theme.color}` }} />
