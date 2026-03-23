@@ -11,6 +11,13 @@ const WORKSPACE_ROOT = '/Users/jaredbot/.openclaw/workspace-hex'
 const PROJECT_ROOT = '/Users/jaredbot/.openclaw/workspace-hex/projects/mission-control'
 const MEMORY_ROOT = '/Users/jaredbot/.openclaw/workspace/memory'
 const AGENT_NAMES = ['Karl', 'Hex', 'Warren', 'Scout', 'Quill'] as const
+const WORKSPACE_BY_AGENT: Record<(typeof AGENT_NAMES)[number], string> = {
+  Karl: '/Users/jaredbot/.openclaw/workspace-karl',
+  Hex: '/Users/jaredbot/.openclaw/workspace-hex',
+  Warren: '/Users/jaredbot/.openclaw/workspace-warren',
+  Scout: '/Users/jaredbot/.openclaw/workspace-scout',
+  Quill: '/Users/jaredbot/.openclaw/workspace-quill',
+}
 const WEEKDAY_ORDER = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 const TODAY = new Date()
 const TODAY_LABEL = WEEKDAY_ORDER[TODAY.getDay()]
@@ -1043,20 +1050,36 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     return { statusDot: 'gray' as const, pace: 'slow' as const, status: 'Idle', warning: false, sad: false, lastActiveMinutes }
   }
 
-  let gitTickerEvents: string[] = []
-  try {
-    const { stdout } = await execFileAsync('git', ['log', '--pretty=format:%s|%cr', '-n', '3'], { cwd: PROJECT_ROOT, timeout: 10_000 })
-    gitTickerEvents = stdout
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => {
-        const [message, relative] = line.split('|')
-        return `Hex committed ${message} · ${relative}`
+  const gitTickerEventsRaw: { event: string; committedAtMs: number }[] = []
+  for (const agentName of AGENT_NAMES) {
+    const workspace = WORKSPACE_BY_AGENT[agentName]
+    try {
+      const gitDir = path.join(workspace, '.git')
+      const hasRepo = await pathExists(gitDir)
+      if (!hasRepo) continue
+
+      const { stdout } = await execFileAsync('git', ['log', '--pretty=format:%ct|%s|%cr', '-n', '1'], {
+        cwd: workspace,
+        timeout: 10_000,
       })
-  } catch {
-    gitTickerEvents = []
+
+      const line = stdout.trim().split('\n').find(Boolean)
+      if (!line) continue
+      const [timestampRaw, message, relative] = line.split('|')
+      const committedAtMs = Number.parseInt(timestampRaw ?? '', 10) * 1000
+      if (!message || !relative || Number.isNaN(committedAtMs)) continue
+      gitTickerEventsRaw.push({
+        event: `${agentName} committed ${message.trim()} · ${relative.trim()}`,
+        committedAtMs,
+      })
+    } catch {
+      // Ignore per-agent git failures so the world page still renders.
+    }
   }
+
+  const gitTickerEvents = gitTickerEventsRaw
+    .sort((a, b) => b.committedAtMs - a.committedAtMs)
+    .map((entry) => entry.event)
 
   const cronTickerEvents = cronJobs
     .filter((job) => typeof job.state?.lastRunAtMs === 'number')
