@@ -4,8 +4,9 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { useRouter } from 'next/navigation'
 import type { MissionControlData } from '../lib/mission-control-data'
+import { WorldView } from './world-view'
 
-const navItems = ['Overview', 'Schedule', 'Agents', 'Portfolio', 'Projects', 'Memory', 'Documents', 'System', 'Settings'] as const
+const navItems = ['Overview', 'Schedule', 'Agents', 'Portfolio', 'Projects', 'World', 'Memory', 'Documents', 'System', 'Settings'] as const
 
 const NAV_OWNER: Record<(typeof navItems)[number], AgentName> = {
   Overview: 'Karl',
@@ -13,6 +14,7 @@ const NAV_OWNER: Record<(typeof navItems)[number], AgentName> = {
   Agents: 'Karl',
   Portfolio: 'Warren',
   Projects: 'Hex',
+  World: 'Karl',
   Memory: 'Karl',
   Documents: 'Hex',
   System: 'Karl',
@@ -25,6 +27,7 @@ const NAV_TOOLTIPS: Record<(typeof navItems)[number], string> = {
   Agents: 'Explains who each agent is, what they own, and whether they are healthy or blocked.',
   Portfolio: 'Summarizes money posture and risk in simple percentages and holdings.',
   Projects: 'Tracks delivery progress, recent commits, and blockers for active work.',
+  World: 'Pixel-town map showing where each agent is moving and what task they are actively handling.',
   Memory: 'Surfaces prior notes and logs so decisions have context and continuity.',
   Documents: 'Lists core project docs and opens them directly so context is one click away.',
   System: 'Shows runtime reliability, cron health, and operational warnings.',
@@ -136,6 +139,12 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
           eyebrow: 'Project board',
           title: 'A concise scan of what is moving across the workspace.',
           description: 'This page keeps project status visible without dropping into chat or opening five folders.',
+        }
+      case 'World':
+        return {
+          eyebrow: 'World view',
+          title: 'A retro 16-bit town where each agent moves between live work landmarks.',
+          description: 'Use this page to see who is actively moving, what task they are on, and whether the city is in day or night mode.',
         }
       case 'Memory':
         return {
@@ -277,6 +286,7 @@ export function MissionControlDashboard({ data }: { data: MissionControlData }) 
           {activeView === 'Agents' && <AgentsView data={data} />}
           {activeView === 'Portfolio' && <PortfolioView data={data} />}
           {activeView === 'Projects' && <ProjectsView data={data} />}
+          {activeView === 'World' && <WorldView world={data.world} />}
           {activeView === 'Memory' && <MemoryView data={data} />}
           {activeView === 'Documents' && <DocumentsView data={data} />}
           {activeView === 'System' && <SystemView data={data} />}

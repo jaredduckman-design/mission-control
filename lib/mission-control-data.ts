@@ -173,6 +173,21 @@ type DocumentLink = {
   href: string
 }
 
+type WorldAgent = {
+  name: AgentName
+  emoji: string
+  status: string
+  currentTask: string
+  landmarks: [string, string]
+  pace: 'fast' | 'slow'
+}
+
+type WorldData = {
+  localHourToronto: number
+  isNight: boolean
+  agents: WorldAgent[]
+}
+
 type CronJob = {
   id: string
   agentId?: string
@@ -237,6 +252,7 @@ export type MissionControlData = {
   }
   settings: SettingsData
   documents: DocumentLink[]
+  world: WorldData
   commandDeck: {
     focus: string
     sourceCount: number
@@ -944,6 +960,61 @@ export async function getMissionControlData(): Promise<MissionControlData> {
   const runningJobs = cronJobs.filter((job) => Boolean(job.state?.runningAtMs)).length
   const blockedJobs = cronJobs.filter((job) => summarizeCronStatus(job) === 'Blocked').length
 
+  const torontoHour = Number(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Toronto',
+      hour: '2-digit',
+      hour12: false,
+    }).format(new Date()),
+  )
+
+  const world: WorldData = {
+    localHourToronto: torontoHour,
+    isNight: torontoHour < 7 || torontoHour >= 19,
+    agents: [
+      {
+        name: 'Karl',
+        emoji: '🦞',
+        status: agentCards.find((agent) => agent.name === 'Karl')?.status ?? 'Coordinating',
+        currentTask: agentCards.find((agent) => agent.name === 'Karl')?.focus ?? 'Routing priorities for the team',
+        landmarks: ['Desk', 'Mailbox'],
+        pace: cronJobs.some((job) => (job.agentId ?? '').toLowerCase() === 'karl' && job.state?.runningAtMs) ? 'fast' : 'slow',
+      },
+      {
+        name: 'Hex',
+        emoji: '💻',
+        status: agentCards.find((agent) => agent.name === 'Hex')?.status ?? 'Healthy',
+        currentTask: agentCards.find((agent) => agent.name === 'Hex')?.focus ?? currentTaskLine,
+        landmarks: ['Computer', 'GitHub Sign'],
+        pace: cronJobs.some((job) => (job.agentId ?? '').toLowerCase() === 'hex' && job.state?.runningAtMs) ? 'fast' : 'slow',
+      },
+      {
+        name: 'Warren',
+        emoji: '💰',
+        status: agentCards.find((agent) => agent.name === 'Warren')?.status ?? 'Monitoring',
+        currentTask: agentCards.find((agent) => agent.name === 'Warren')?.focus ?? 'Monitoring portfolio and reconciliation',
+        landmarks: ['Stock Ticker', 'Safe'],
+        pace: cronJobs.some((job) => (job.agentId ?? '').toLowerCase() === 'warren' && job.state?.runningAtMs) ? 'fast' : 'slow',
+      },
+      {
+        name: 'Scout',
+        emoji: '🔍',
+        status: agentCards.find((agent) => agent.name === 'Scout')?.status ?? 'Monitoring',
+        currentTask: agentCards.find((agent) => agent.name === 'Scout')?.focus ?? 'Gathering external signal quality',
+        landmarks: ['Library', 'Magnifier'],
+        pace: cronJobs.some((job) => (job.agentId ?? '').toLowerCase() === 'scout' && job.state?.runningAtMs) ? 'fast' : 'slow',
+      },
+      {
+        name: 'Quill',
+        emoji: '✍️',
+        status: agentCards.find((agent) => agent.name === 'Quill')?.status ?? 'Healthy',
+        currentTask: agentCards.find((agent) => agent.name === 'Quill')?.focus ?? 'Preparing concise updates',
+        landmarks: ['Typewriter', 'Scroll'],
+        pace: cronJobs.some((job) => (job.agentId ?? '').toLowerCase() === 'quill' && job.state?.runningAtMs) ? 'fast' : 'slow',
+      },
+    ],
+  }
+
   return {
     generatedAt: new Date().toISOString(),
     generatedLabel,
@@ -977,6 +1048,7 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     },
     settings,
     documents,
+    world,
     commandDeck: {
       focus: currentTaskLine,
       sourceCount: documents.length + (cronJobs.length ? 1 : 0),
