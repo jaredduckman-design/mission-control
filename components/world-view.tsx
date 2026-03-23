@@ -96,6 +96,11 @@ function formatLastActive(minutes: number | null) {
   return rem ? `${hours}h ${rem}m ago` : `${hours}h ago`
 }
 
+function truncateTask(task: string, max = 24) {
+  if (task.length <= max) return task
+  return `${task.slice(0, Math.max(0, max - 1)).trimEnd()}…`
+}
+
 export function WorldView({ world }: WorldViewProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const audioRef = useRef<AudioContext | null>(null)
@@ -153,6 +158,7 @@ export function WorldView({ world }: WorldViewProps) {
         activeNow: world.health.totalAgents,
         blocked: 0,
         state: 'All clear ✅' as const,
+        tone: 'green' as const,
       },
       ticker: world.agents.map((agent, idx) => `${agent.name} demo pipeline active · ${idx + 1}m ago`).slice(0, 5),
     }
@@ -364,6 +370,19 @@ export function WorldView({ world }: WorldViewProps) {
           ctx.fillText(line, bubbleX + 6, bubbleY + 18 + lineIndex * 12)
         })
 
+        const statsY = bubbleY + bubbleHeight + 10
+        const statsWidth = clamp(bubbleWidth, 190, 240)
+        const statsX = clamp(x - statsWidth / 2, 8, WORLD_WIDTH - statsWidth - 8)
+        const statsTask = truncateTask(walker.task, 26)
+        makePixelRect(ctx, statsX, statsY, statsWidth, 52, 'rgba(2,6,23,0.92)', 2)
+        makePixelRect(ctx, statsX, statsY, statsWidth, 2, 'rgba(148,163,184,0.9)', 2)
+        ctx.fillStyle = '#cbd5e1'
+        ctx.font = '9px monospace'
+        ctx.fillText(`Last active: ${formatLastActive(walker.lastActiveMinutes)}`, statsX + 6, statsY + 12)
+        ctx.fillText(`Last task: ${statsTask}`, statsX + 6, statsY + 23)
+        ctx.fillText(`Status: ${walker.status}`, statsX + 6, statsY + 34)
+        ctx.fillText(`Tasks in queue: ${walker.queueCount}`, statsX + 6, statsY + 45)
+
         if (walker.warning) {
           ctx.fillStyle = '#ef4444'
           ctx.font = '16px monospace'
@@ -431,7 +450,15 @@ export function WorldView({ world }: WorldViewProps) {
           </div>
         </div>
 
-        <div className={`mt-4 grid gap-3 rounded-2xl border px-4 py-3 text-xs sm:grid-cols-4 ${worldData.health.blocked > 0 ? 'border-red-300/30 bg-red-500/10 text-red-100' : 'border-emerald-300/30 bg-emerald-500/10 text-emerald-100'}`}>
+        <div
+          className={`mt-4 grid gap-3 rounded-2xl border px-4 py-3 text-xs sm:grid-cols-4 ${
+            worldData.health.tone === 'red'
+              ? 'border-red-300/30 bg-red-500/10 text-red-100'
+              : worldData.health.tone === 'amber'
+                ? 'border-amber-300/30 bg-amber-500/10 text-amber-100'
+                : 'border-emerald-300/30 bg-emerald-500/10 text-emerald-100'
+          }`}
+        >
           <p>Total agents: <span className="font-semibold">{worldData.health.totalAgents}</span></p>
           <p>Active now: <span className="font-semibold">{worldData.health.activeNow}</span></p>
           <p>Blocked: <span className="font-semibold">{worldData.health.blocked}</span></p>

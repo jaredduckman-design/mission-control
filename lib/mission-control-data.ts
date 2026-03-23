@@ -200,7 +200,8 @@ type WorldData = {
     totalAgents: number
     activeNow: number
     blocked: number
-    state: 'All clear ✅' | 'Issues ⚠️'
+    state: 'All clear ✅' | 'Watch ⚠️' | 'Issues ⚠️'
+    tone: 'green' | 'amber' | 'red'
   }
   ticker: string[]
 }
@@ -1106,15 +1107,19 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     },
   ]
 
+  const activeNow = worldAgents.filter((agent) => agent.statusDot === 'green').length
+  const blockedNow = worldAgents.filter((agent) => agent.statusDot === 'red').length
+
   const world: WorldData = {
     localHourToronto: torontoHour,
     isNight: torontoHour < 7 || torontoHour >= 19,
     agents: worldAgents,
     health: {
       totalAgents: worldAgents.length,
-      activeNow: worldAgents.filter((agent) => agent.statusDot === 'green').length,
-      blocked: worldAgents.filter((agent) => agent.statusDot === 'red').length,
-      state: worldAgents.some((agent) => agent.statusDot === 'red') ? 'Issues ⚠️' : 'All clear ✅',
+      activeNow,
+      blocked: blockedNow,
+      state: blockedNow > 0 ? 'Issues ⚠️' : activeNow < worldAgents.length ? 'Watch ⚠️' : 'All clear ✅',
+      tone: blockedNow > 0 ? 'red' : activeNow < worldAgents.length ? 'amber' : 'green',
     },
     ticker: [...gitTickerEvents, ...cronTickerEvents].slice(0, 5),
   }
