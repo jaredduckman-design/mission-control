@@ -27,6 +27,9 @@ const COLOR_MAP: Record<string, string> = {
   Quill: '#a855f7',
 }
 
+const WORLD_WIDTH = 820
+const WORLD_HEIGHT = 560
+
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value))
 }
@@ -109,20 +112,31 @@ export function WorldView({ world }: WorldViewProps) {
       const isNight = world.isNight
       const sky = isNight ? '#0a1024' : '#7ec8ff'
       const ground = isNight ? '#102335' : '#2c7b4d'
-      ctx.fillStyle = sky
+
+      const scale = Math.min(width / WORLD_WIDTH, height / WORLD_HEIGHT)
+      const offsetX = (width - WORLD_WIDTH * scale) / 2
+      const offsetY = (height - WORLD_HEIGHT * scale) / 2
+
+      ctx.fillStyle = '#060b16'
       ctx.fillRect(0, 0, width, height)
+      ctx.save()
+      ctx.translate(offsetX, offsetY)
+      ctx.scale(scale, scale)
+
+      ctx.fillStyle = sky
+      ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT)
       ctx.fillStyle = ground
-      ctx.fillRect(0, height * 0.34, width, height * 0.66)
+      ctx.fillRect(0, WORLD_HEIGHT * 0.34, WORLD_WIDTH, WORLD_HEIGHT * 0.66)
 
       if (isNight) {
         for (let i = 0; i < 40; i += 1) {
           ctx.fillStyle = i % 2 === 0 ? '#fef3c7' : '#dbeafe'
-          ctx.fillRect((i * 57) % width, 20 + ((i * 31) % 120), 2, 2)
+          ctx.fillRect((i * 57) % WORLD_WIDTH, 20 + ((i * 31) % 120), 2, 2)
         }
       } else {
         ctx.fillStyle = '#fde047'
         ctx.beginPath()
-        ctx.arc(width - 70, 70, 30, 0, Math.PI * 2)
+        ctx.arc(WORLD_WIDTH - 70, 70, 30, 0, Math.PI * 2)
         ctx.fill()
       }
 
@@ -157,16 +171,17 @@ export function WorldView({ world }: WorldViewProps) {
         const x = walker.from.x + (walker.to.x - walker.from.x) * walker.progress
         const y = walker.from.y + (walker.to.y - walker.from.y) * walker.progress
 
-        const bubbleText = `${walker.name}: ${walker.task}`
+        const bubbleText = `${walker.name} (${walker.status}): ${walker.task}`
         const bubbleWidth = clamp(Math.max(150, bubbleText.length * 5.7), 150, 290)
+        const bubbleX = clamp(x - bubbleWidth / 2, 8, WORLD_WIDTH - bubbleWidth - 8)
 
-        makePixelRect(ctx, x - bubbleWidth / 2, y - 58, bubbleWidth, 26, 'rgba(15,23,42,0.95)', 2)
-        makePixelRect(ctx, x - bubbleWidth / 2, y - 58, bubbleWidth, 2, '#f8fafc', 2)
-        makePixelRect(ctx, x - 2, y - 32, 8, 8, 'rgba(15,23,42,0.95)', 2)
+        makePixelRect(ctx, bubbleX, y - 58, bubbleWidth, 26, 'rgba(15,23,42,0.95)', 2)
+        makePixelRect(ctx, bubbleX, y - 58, bubbleWidth, 2, '#f8fafc', 2)
+        makePixelRect(ctx, clamp(x - 2, 8, WORLD_WIDTH - 10), y - 32, 8, 8, 'rgba(15,23,42,0.95)', 2)
 
         ctx.fillStyle = '#e2e8f0'
         ctx.font = '11px monospace'
-        ctx.fillText(bubbleText.slice(0, 46), x - bubbleWidth / 2 + 6, y - 40)
+        ctx.fillText(bubbleText.slice(0, 44), bubbleX + 6, y - 40)
 
         makePixelRect(ctx, x - 9, y - 10, 18, 18, COLOR_MAP[walker.name] ?? '#94a3b8')
         ctx.fillStyle = '#020617'
@@ -175,9 +190,10 @@ export function WorldView({ world }: WorldViewProps) {
 
         ctx.fillStyle = '#f8fafc'
         ctx.font = '10px monospace'
-        ctx.fillText(`${walker.from.label} ↔ ${walker.to.label}`, x - 52, y + 24)
+        ctx.fillText(`${walker.from.label} ↔ ${walker.to.label}`, clamp(x - 52, 8, WORLD_WIDTH - 130), y + 24)
       })
 
+      ctx.restore()
       raf = window.requestAnimationFrame(draw)
     }
 
@@ -204,7 +220,7 @@ export function WorldView({ world }: WorldViewProps) {
         </div>
 
         <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-[#060b16]">
-          <canvas ref={canvasRef} className="h-[560px] w-full" aria-label="Pixel world with moving agents and speech bubbles" />
+          <canvas ref={canvasRef} className="h-[360px] w-full sm:h-[480px] lg:h-[560px]" aria-label="Pixel world with moving agents and speech bubbles" />
         </div>
       </article>
     </section>
