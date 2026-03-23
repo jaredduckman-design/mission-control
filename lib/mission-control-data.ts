@@ -1086,10 +1086,15 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     })),
     ...cronJobs
       .filter((job) => typeof job.state?.lastRunAtMs === 'number')
-      .map((job) => ({
-        atMs: job.state?.lastRunAtMs ?? 0,
-        event: `${humanizeName(job.name)} ${summarizeCronStatus(job).toLowerCase()} · ${formatRelative(job.state?.lastRunAtMs)}`,
-      })),
+      .map((job) => {
+        const agent = AGENT_NAMES.find((name) => name.toLowerCase() === (job.agentId ?? '').toLowerCase())
+        const status = summarizeCronStatus(job).toLowerCase()
+        const prefix = agent ? `${agent} cron` : 'System cron'
+        return {
+          atMs: job.state?.lastRunAtMs ?? 0,
+          event: `${prefix}: ${humanizeName(job.name)} ${status} · ${formatRelative(job.state?.lastRunAtMs)}`,
+        }
+      }),
   ]
     .sort((a, b) => b.atMs - a.atMs)
     .slice(0, 5)
