@@ -1085,14 +1085,16 @@ export async function getMissionControlData(): Promise<MissionControlData> {
       event: entry.event,
     })),
     ...cronJobs
-      .filter((job) => typeof job.state?.lastRunAtMs === 'number')
+      .filter((job) => {
+        if (typeof job.state?.lastRunAtMs !== 'number') return false
+        return AGENT_NAMES.some((name) => name.toLowerCase() === (job.agentId ?? '').toLowerCase())
+      })
       .map((job) => {
-        const agent = AGENT_NAMES.find((name) => name.toLowerCase() === (job.agentId ?? '').toLowerCase())
+        const agent = AGENT_NAMES.find((name) => name.toLowerCase() === (job.agentId ?? '').toLowerCase()) ?? 'System'
         const status = summarizeCronStatus(job).toLowerCase()
-        const prefix = agent ? `${agent} cron` : 'System cron'
         return {
           atMs: job.state?.lastRunAtMs ?? 0,
-          event: `${prefix}: ${humanizeName(job.name)} ${status} · ${formatRelative(job.state?.lastRunAtMs)}`,
+          event: `${agent} cron: ${humanizeName(job.name)} ${status} · ${formatRelative(job.state?.lastRunAtMs)}`,
         }
       }),
   ]
