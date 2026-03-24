@@ -22,6 +22,8 @@ type Walker = {
   sad: boolean
   lastActiveMinutes: number | null
   queueCount: number
+  lastPosition: { x: number; y: number } | null
+  stuckForSeconds: number
 }
 
 const COLOR_MAP: Record<string, string> = {
@@ -188,6 +190,8 @@ export function WorldView({ world }: WorldViewProps) {
       sad: agent.sad,
       lastActiveMinutes: agent.lastActiveMinutes,
       queueCount: agent.queueCount,
+      lastPosition: null,
+      stuckForSeconds: 0,
     }))
   }, [landmarks, worldData.agents])
 
@@ -349,6 +353,14 @@ export function WorldView({ world }: WorldViewProps) {
 
       walkersRef.current.forEach((walker) => {
         const speed = walker.pace === 'fast' ? 0.23 : 0
+
+        if (!Number.isFinite(walker.progress)) {
+          walker.progress = 0.5
+          walker.direction = 1
+          walker.stuckForSeconds = 0
+          walker.lastPosition = null
+        }
+
         walker.progress += speed * dt * walker.direction
 
         if (walker.progress >= 1) {
@@ -359,8 +371,32 @@ export function WorldView({ world }: WorldViewProps) {
           walker.direction = 1
         }
 
-        const baseX = walker.from.x + (walker.to.x - walker.from.x) * walker.progress
-        const baseY = walker.from.y + (walker.to.y - walker.from.y) * walker.progress
+        let baseX = walker.from.x + (walker.to.x - walker.from.x) * walker.progress
+        let baseY = walker.from.y + (walker.to.y - walker.from.y) * walker.progress
+
+        if (walker.pace === 'fast') {
+          if (walker.lastPosition) {
+            const moved = Math.hypot(baseX - walker.lastPosition.x, baseY - walker.lastPosition.y)
+            if (moved < 0.06) {
+              walker.stuckForSeconds += dt
+            } else {
+              walker.stuckForSeconds = Math.max(0, walker.stuckForSeconds - dt * 2)
+            }
+
+            if (walker.stuckForSeconds > 1.2) {
+              walker.direction = walker.direction === 1 ? -1 : 1
+              walker.progress = clamp(walker.progress + 0.08 * walker.direction, 0, 1)
+              baseX = walker.from.x + (walker.to.x - walker.from.x) * walker.progress
+              baseY = walker.from.y + (walker.to.y - walker.from.y) * walker.progress
+              walker.stuckForSeconds = 0
+            }
+          }
+
+          walker.lastPosition = { x: baseX, y: baseY }
+        } else {
+          walker.lastPosition = null
+          walker.stuckForSeconds = 0
+        }
         const stuckShake = walker.sad ? Math.sin(now / 90) * 1.8 : 0
         const stuckBob = walker.sad ? Math.sin(now / 140) * 0.6 : 0
         const x = baseX + stuckShake
