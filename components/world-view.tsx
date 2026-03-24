@@ -354,11 +354,24 @@ export function WorldView({ world }: WorldViewProps) {
       walkersRef.current.forEach((walker) => {
         const speed = walker.pace === 'fast' ? 0.23 : 0
 
+        const routeDistance = Math.hypot(walker.to.x - walker.from.x, walker.to.y - walker.from.y)
+        if (!Number.isFinite(routeDistance) || routeDistance < 12) {
+          walker.to = {
+            ...walker.to,
+            x: walker.from.x + 64,
+            y: walker.from.y,
+          }
+        }
+
         if (!Number.isFinite(walker.progress)) {
           walker.progress = 0.5
           walker.direction = 1
           walker.stuckForSeconds = 0
           walker.lastPosition = null
+        }
+
+        if (walker.direction !== 1 && walker.direction !== -1) {
+          walker.direction = 1
         }
 
         walker.progress += speed * dt * walker.direction
