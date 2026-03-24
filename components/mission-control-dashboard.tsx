@@ -523,13 +523,16 @@ function AgentsView({ data }: { data: MissionControlData }) {
 }
 
 function ApprovalsView({ data }: { data: MissionControlData }) {
+  const [ownerFilter, setOwnerFilter] = useState<'All' | AgentName>('All')
+  const [urgencyFilter, setUrgencyFilter] = useState<'All' | 'High' | 'Medium'>('All')
+
   const approvals = [
     ...data.projects
       .filter((project) => project.blockers.length > 0)
       .map((project) => ({
-        owner: project.owner,
+        owner: project.owner as AgentName,
         item: `${project.name}: clear blocker`,
-        urgency: 'High',
+        urgency: 'High' as const,
         detail: project.blockers[0],
       })),
     ...data.agents.cards
@@ -537,23 +540,41 @@ function ApprovalsView({ data }: { data: MissionControlData }) {
       .map((agent) => ({
         owner: agent.name,
         item: `${agent.pendingDelegations} pending delegation${agent.pendingDelegations === 1 ? '' : 's'}`,
-        urgency: 'Medium',
+        urgency: 'Medium' as const,
         detail: `Routing follow-ups needed for ${agent.focus.toLowerCase()}.`,
       })),
     ...data.system.securityWarnings.slice(0, 2).map((warning) => ({
-      owner: 'Karl',
+      owner: 'Karl' as const,
       item: 'Review system warning',
-      urgency: 'Medium',
+      urgency: 'Medium' as const,
       detail: warning,
     })),
   ]
 
-  const deduped = approvals.filter((approval, index) =>
-    approvals.findIndex((candidate) => candidate.item === approval.item && candidate.detail === approval.detail) === index,
+  const deduped = approvals.filter(
+    (approval, index) =>
+      approvals.findIndex((candidate) => candidate.item === approval.item && candidate.detail === approval.detail) === index,
   )
+
+  const sorted = [...deduped].sort((a, b) => {
+    if (a.urgency !== b.urgency) return a.urgency === 'High' ? -1 : 1
+    return a.owner.localeCompare(b.owner)
+  })
+
+  const visible = sorted.filter((item) => {
+    if (ownerFilter !== 'All' && item.owner !== ownerFilter) return false
+    if (urgencyFilter !== 'All' && item.urgency !== urgencyFilter) return false
+    return true
+  })
+
+  const ownerChips = Array.from(new Set(sorted.map((item) => item.owner))) as AgentName[]
 
   return (
     <section className="space-y-4" title="Approvals queue keeps decision bottlenecks visible so blockers can be cleared quickly.">
+      <div className="flex justify-end">
+        <SectionHint text="Approvals centralizes yes/no decisions so blockers get cleared before they stall delivery." />
+      </div>
+
       <div className="grid gap-4 md:grid-cols-3">
         <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Needs decision</p>
@@ -572,25 +593,69 @@ function ApprovalsView({ data }: { data: MissionControlData }) {
         </article>
       </div>
 
+      <article className="rounded-[28px] border border-white/8 bg-[#091120]/90 p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setOwnerFilter('All')}
+            className={`rounded-full border px-3 py-1 text-xs font-semibold ${ownerFilter === 'All' ? 'border-cyan-300/50 bg-cyan-300/20 text-cyan-100' : 'border-white/15 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'}`}
+          >
+            All owners
+          </button>
+          {ownerChips.map((owner) => {
+            const theme = agentTheme(owner)
+            return (
+              <button
+                key={owner}
+                type="button"
+                onClick={() => setOwnerFilter(owner)}
+                className={`rounded-full border px-3 py-1 text-xs font-semibold ${ownerFilter === owner ? 'text-white' : 'text-slate-300 hover:bg-white/[0.08]'}`}
+                style={{
+                  borderColor: ownerFilter === owner ? theme.color : 'rgba(255,255,255,0.15)',
+                  backgroundColor: ownerFilter === owner ? `${theme.color}33` : 'rgba(255,255,255,0.04)',
+                }}
+              >
+                {theme.emoji} {owner}
+              </button>
+            )
+          })}
+          <div className="ml-auto flex gap-2">
+            {(['All', 'High', 'Medium'] as const).map((urgency) => (
+              <button
+                key={urgency}
+                type="button"
+                onClick={() => setUrgencyFilter(urgency)}
+                className={`rounded-full border px-3 py-1 text-xs font-semibold ${urgencyFilter === urgency ? 'border-amber-300/50 bg-amber-300/20 text-amber-100' : 'border-white/15 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'}`}
+              >
+                {urgency}
+              </button>
+            ))}
+          </div>
+        </div>
+      </article>
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {deduped.length ? (
-          deduped.map((approval, index) => (
-            <article key={`${approval.item}-${index}`} className="h-full rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{approval.owner}</p>
-                <span
-                  className={`rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${approval.urgency === 'High' ? 'border-rose-400/50 bg-rose-400/15 text-rose-100' : 'border-amber-300/40 bg-amber-300/10 text-amber-100'}`}
-                >
-                  {approval.urgency}
-                </span>
-              </div>
-              <h3 className="mt-3 text-lg font-semibold text-white">{approval.item}</h3>
-              <p className="mt-2 text-sm text-slate-300">{approval.detail}</p>
-            </article>
-          ))
+        {visible.length ? (
+          visible.map((approval, index) => {
+            const theme = agentTheme(approval.owner)
+            return (
+              <article key={`${approval.item}-${index}`} className="h-full rounded-3xl border border-white/10 border-l-4 bg-white/[0.03] p-5" style={{ borderLeftColor: theme.color }}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{theme.emoji} {approval.owner}</p>
+                  <span
+                    className={`rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${approval.urgency === 'High' ? 'border-rose-400/50 bg-rose-400/15 text-rose-100' : 'border-amber-300/40 bg-amber-300/10 text-amber-100'}`}
+                  >
+                    {approval.urgency}
+                  </span>
+                </div>
+                <h3 className="mt-3 text-lg font-semibold text-white">{approval.item}</h3>
+                <p className="mt-2 text-sm text-slate-300">{approval.detail}</p>
+              </article>
+            )
+          })
         ) : (
           <article className="rounded-3xl border border-emerald-400/30 bg-emerald-500/10 p-5 text-sm text-emerald-100 md:col-span-2 xl:col-span-3">
-            No approvals waiting right now — everything is unblocked.
+            No approvals match this filter right now.
           </article>
         )}
       </div>
